@@ -1,0 +1,738 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fantastradamus Interactive Dashboard</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 30px;
+            margin: 0;
+        }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        h1 { color: #38bdf8; font-size: 2.2rem; margin: 0; }
+        .controls { display: flex; align-items: center; gap: 10px; }
+        label { color: #94a3b8; font-weight: bold; font-size: 0.95rem; }
+        select {
+            background-color: #1e293b;
+            color: #38bdf8;
+            border: 1px solid #38bdf8;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+        }
+        select:hover { background-color: #334155; }
+        h2 { color: #94a3b8; font-size: 1.3rem; margin-top: 35px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+        
+        /* Guide Cards */
+        .info-card {
+            background-color: #1e293b;
+            border-left: 4px solid #38bdf8;
+            padding: 15px 20px;
+            margin-top: 15px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .info-card ul { margin: 5px 0 0 0; padding-left: 20px; }
+        .info-card li { margin-bottom: 4px; }
+        
+        /* Table Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background-color: #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+        th {
+            background-color: #334155;
+            color: #38bdf8;
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover { background-color: #475569; }
+        th::after { content: ' ↕'; font-size: 0.75rem; color: #64748b; }
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #334155;
+            font-size: 0.95rem;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #24334d; }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <div>
+            <h1>🔮 Fantastradamus Engine</h1>
+            <div style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Live Analytics & Waiver Intelligence Hub | <i>Click column headers to sort</i></div>
+        </div>
+        <div class="controls">
+            <label for="teamSelect">Active Team Target:</label>
+            <select id="teamSelect" onchange="filterTeamData()">
+                <option value="1ST & SKOL" >1ST & SKOL</option><option value="Belichick Yo'self" >Belichick Yo'self</option><option value="Big Nasty" >Big Nasty</option><option value="CM Skunks" >CM Skunks</option><option value="Flippin Phins" >Flippin Phins</option><option value="Lynch Mob" >Lynch Mob</option><option value="My Diggs Curves Left" >My Diggs Curves Left</option><option value="Purple People Eaters" >Purple People Eaters</option><option value="Purple Reign" >Purple Reign</option><option value="Redzone" >Redzone</option><option value="Sun Tzu's Battalion" >Sun Tzu's Battalion</option><option value="Vader's Raiders" selected>Vader's Raiders</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- GLOSSARY CARD -->
+    <div class="info-card">
+        <strong>📚 Term Definitions & Core Metrics:</strong>
+        <ul>
+            <li><strong>WOPR (Weighted Opportunity Rating):</strong> Pure opportunity allocation (1.5 × Target Share + 0.7 × Air Yards Share). Measures intent over points.</li>
+            <li><strong>Surge (Velocity):</strong> Workload rate of change over the last 3 weeks. Positive values signal expanding roles.</li>
+            <li><strong>PPR Avg:</strong> Trailing average PPR fantasy points per game.</li>
+        </ul>
+    </div>
+
+    <!-- SECTION 1 -->
+    <h2>🏈 Squad Evaluation (<span id="activeTeamHeader">Vader's Raiders</span>)</h2>
+    <div class="info-card">
+        <strong>Verdict Guidance:</strong>
+        <ul>
+            <li><strong>✂️ DROP CANDIDATE:</strong> Low volume (WOPR &lt; 0.20) and poor output (PPR &lt; 8.0). Free up bench slots.</li>
+            <li><strong>⚠️ FLUKE RISK (Trade Out):</strong> Fantasy points on weak underlying volume (WOPR &lt; 0.25, PPR ≥ 13.0). Trade before regression.</li>
+        </ul>
+    </div>
+    <div id="squadTableContainer">
+        <table border="1" class="dataframe sortable">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Slot</th>
+      <th>Player</th>
+      <th>Pos</th>
+      <th>Team</th>
+      <th>WOPR (Opp)</th>
+      <th>Surge</th>
+      <th>PPR Avg</th>
+      <th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>WR</td>
+      <td>Emeka Egbuka</td>
+      <td>WR</td>
+      <td>TB</td>
+      <td>0.637</td>
+      <td>-0.108</td>
+      <td>11.3</td>
+      <td>🔥 CORE STARTER</td>
+    </tr>
+    <tr>
+      <td>BN</td>
+      <td>Alec Pierce</td>
+      <td>WR</td>
+      <td>IND</td>
+      <td>0.578</td>
+      <td>-0.091</td>
+      <td>10.1</td>
+      <td>🔥 CORE STARTER</td>
+    </tr>
+    <tr>
+      <td>BN</td>
+      <td>Michael Pittman</td>
+      <td>WR</td>
+      <td>PIT</td>
+      <td>0.387</td>
+      <td>0.209</td>
+      <td>8.8</td>
+      <td>👀 HOLD</td>
+    </tr>
+    <tr>
+      <td>TE</td>
+      <td>Michael Mayer</td>
+      <td>TE</td>
+      <td>LV</td>
+      <td>0.335</td>
+      <td>-0.114</td>
+      <td>9.2</td>
+      <td>👀 HOLD</td>
+    </tr>
+    <tr>
+      <td>WR</td>
+      <td>Luther Burden III</td>
+      <td>WR</td>
+      <td>CHI</td>
+      <td>0.302</td>
+      <td>-0.066</td>
+      <td>9.5</td>
+      <td>👀 HOLD</td>
+    </tr>
+    <tr>
+      <td>RB</td>
+      <td>Jonathan Taylor</td>
+      <td>RB</td>
+      <td>IND</td>
+      <td>0.169</td>
+      <td>-0.038</td>
+      <td>25.1</td>
+      <td>⚠️ FLUKE RISK (Trade Out)</td>
+    </tr>
+    <tr>
+      <td>RB</td>
+      <td>Cam Skattebo</td>
+      <td>RB</td>
+      <td>NYG</td>
+      <td>0.142</td>
+      <td>0.142</td>
+      <td>14.1</td>
+      <td>⚠️ FLUKE RISK (Trade Out)</td>
+    </tr>
+    <tr>
+      <td>W/R/T</td>
+      <td>Jadarian Price</td>
+      <td>RB</td>
+      <td>SEA</td>
+      <td>0.120</td>
+      <td>0.000</td>
+      <td>7.8</td>
+      <td>✂️ DROP CANDIDATE</td>
+    </tr>
+    <tr>
+      <td>BN</td>
+      <td>Jordan Mason</td>
+      <td>RB</td>
+      <td>MIN</td>
+      <td>0.031</td>
+      <td>0.031</td>
+      <td>11.9</td>
+      <td>👀 HOLD</td>
+    </tr>
+  </tbody>
+</table>
+    </div>
+
+    <!-- SECTION 2 -->
+    <h2>🔥 Unclaimed Waiver Wire (Ranked by WOPR Surge)</h2>
+    <div class="info-card">
+        <strong>Verdict Guidance:</strong>
+        <ul>
+            <li><strong>📈 SURGING WORKLOAD (wopr_surge ≥ 0.100):</strong> Target/air-yard velocity jumped significantly over recent games.</li>
+            <li><strong>🚨 BUY LOW / WAIVER TARGET:</strong> High opportunity (WOPR ≥ 0.45) with low output (PPR &lt; 10.0). Claim before points catch up.</li>
+        </ul>
+    </div>
+    <table border="1" class="dataframe sortable">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Player</th>
+      <th>Pos</th>
+      <th>Team</th>
+      <th>WOPR (Opp)</th>
+      <th>Surge (Velocity)</th>
+      <th>PPR Avg</th>
+      <th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Theo Johnson</td>
+      <td>TE</td>
+      <td>NYG</td>
+      <td>0.295</td>
+      <td>0.238</td>
+      <td>1.9</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Keon Coleman</td>
+      <td>WR</td>
+      <td>BUF</td>
+      <td>0.295</td>
+      <td>0.234</td>
+      <td>1.1</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Jauan Jennings</td>
+      <td>WR</td>
+      <td>MIN</td>
+      <td>0.394</td>
+      <td>0.209</td>
+      <td>0.0</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Darren Waller</td>
+      <td>TE</td>
+      <td>CAR</td>
+      <td>0.306</td>
+      <td>0.203</td>
+      <td>4.8</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Darnell Mooney</td>
+      <td>WR</td>
+      <td>NYG</td>
+      <td>0.373</td>
+      <td>0.198</td>
+      <td>4.7</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Chimere Dike</td>
+      <td>WR</td>
+      <td>TEN</td>
+      <td>0.251</td>
+      <td>0.186</td>
+      <td>1.7</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Xavier Legette</td>
+      <td>WR</td>
+      <td>CAR</td>
+      <td>0.291</td>
+      <td>0.164</td>
+      <td>0.0</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Kayshon Boutte</td>
+      <td>WR</td>
+      <td>HOU</td>
+      <td>0.312</td>
+      <td>0.161</td>
+      <td>3.1</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Oronde Gadsden II</td>
+      <td>TE</td>
+      <td>LAC</td>
+      <td>0.276</td>
+      <td>0.147</td>
+      <td>5.2</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Elic Ayomanor</td>
+      <td>WR</td>
+      <td>TEN</td>
+      <td>0.456</td>
+      <td>0.145</td>
+      <td>8.1</td>
+      <td>🚨 BUY LOW / TARGET</td>
+    </tr>
+    <tr>
+      <td>Dawson Knox</td>
+      <td>TE</td>
+      <td>BUF</td>
+      <td>0.201</td>
+      <td>0.144</td>
+      <td>1.7</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Greg Dulcich</td>
+      <td>TE</td>
+      <td>MIA</td>
+      <td>0.250</td>
+      <td>0.137</td>
+      <td>3.8</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Rashod Bateman</td>
+      <td>WR</td>
+      <td>BAL</td>
+      <td>0.257</td>
+      <td>0.134</td>
+      <td>0.0</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Tyrone Tracy Jr.</td>
+      <td>RB</td>
+      <td>NYG</td>
+      <td>0.123</td>
+      <td>0.123</td>
+      <td>-0.6</td>
+      <td>📈 SURGING WORKLOAD</td>
+    </tr>
+    <tr>
+      <td>Jerry Jeudy</td>
+      <td>WR</td>
+      <td>CLE</td>
+      <td>0.515</td>
+      <td>0.120</td>
+      <td>4.6</td>
+      <td>🚨 BUY LOW / TARGET</td>
+    </tr>
+  </tbody>
+</table>
+
+    <!-- SECTION 3 -->
+    <h2>🎯 Rival Roster Trade Targets (High WOPR / Low PPR Output)</h2>
+    <div class="info-card">
+        <strong>Verdict Guidance:</strong>
+        <ul>
+            <li><strong>🚨 BUY LOW / TRADE TARGET:</strong> Rostered on rival benches but underperforming despite high opportunity share. Ideal trade candidates.</li>
+        </ul>
+    </div>
+    <div id="tradeTableContainer">
+        <table border="1" class="dataframe sortable">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Owner</th>
+      <th>Player</th>
+      <th>Pos</th>
+      <th>Team</th>
+      <th>WOPR (Opp)</th>
+      <th>PPR Avg</th>
+      <th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Purple People Eaters</td>
+      <td>Drake London</td>
+      <td>WR</td>
+      <td>ATL</td>
+      <td>0.674</td>
+      <td>5.5</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>1ST &amp; SKOL</td>
+      <td>Tetairoa McMillan</td>
+      <td>WR</td>
+      <td>CAR</td>
+      <td>0.666</td>
+      <td>10.5</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Lynch Mob</td>
+      <td>DK Metcalf</td>
+      <td>WR</td>
+      <td>PIT</td>
+      <td>0.626</td>
+      <td>8.0</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Lynch Mob</td>
+      <td>Ja'Marr Chase</td>
+      <td>WR</td>
+      <td>CIN</td>
+      <td>0.623</td>
+      <td>3.2</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Big Nasty</td>
+      <td>DeVonta Smith</td>
+      <td>WR</td>
+      <td>PHI</td>
+      <td>0.608</td>
+      <td>8.3</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>CM Skunks</td>
+      <td>Wan'Dale Robinson</td>
+      <td>WR</td>
+      <td>TEN</td>
+      <td>0.591</td>
+      <td>8.8</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Sun Tzu's Battalion</td>
+      <td>Davante Adams</td>
+      <td>WR</td>
+      <td>LA</td>
+      <td>0.589</td>
+      <td>5.6</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>My Diggs Curves Left</td>
+      <td>Jameson Williams</td>
+      <td>WR</td>
+      <td>DET</td>
+      <td>0.571</td>
+      <td>8.5</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Belichick Yo'self</td>
+      <td>A.J. Brown</td>
+      <td>WR</td>
+      <td>NE</td>
+      <td>0.569</td>
+      <td>5.6</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Flippin Phins</td>
+      <td>Carnell Tate</td>
+      <td>WR</td>
+      <td>TEN</td>
+      <td>0.568</td>
+      <td>7.8</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Belichick Yo'self</td>
+      <td>George Pickens</td>
+      <td>WR</td>
+      <td>DAL</td>
+      <td>0.556</td>
+      <td>5.8</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Sun Tzu's Battalion</td>
+      <td>Tee Higgins</td>
+      <td>WR</td>
+      <td>CIN</td>
+      <td>0.535</td>
+      <td>8.9</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Flippin Phins</td>
+      <td>KC Concepcion</td>
+      <td>WR</td>
+      <td>CLE</td>
+      <td>0.534</td>
+      <td>7.8</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Big Nasty</td>
+      <td>Terry McLaurin</td>
+      <td>WR</td>
+      <td>WAS</td>
+      <td>0.520</td>
+      <td>3.4</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Purple People Eaters</td>
+      <td>Rome Odunze</td>
+      <td>WR</td>
+      <td>CHI</td>
+      <td>0.519</td>
+      <td>7.2</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Redzone</td>
+      <td>Michael Wilson</td>
+      <td>WR</td>
+      <td>ARI</td>
+      <td>0.503</td>
+      <td>10.6</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>1ST &amp; SKOL</td>
+      <td>Quentin Johnston</td>
+      <td>WR</td>
+      <td>LAC</td>
+      <td>0.478</td>
+      <td>3.7</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Big Nasty</td>
+      <td>Keenan Allen</td>
+      <td>WR</td>
+      <td>IND</td>
+      <td>0.468</td>
+      <td>9.2</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Purple People Eaters</td>
+      <td>Romeo Doubs</td>
+      <td>WR</td>
+      <td>NE</td>
+      <td>0.461</td>
+      <td>0.0</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>1ST &amp; SKOL</td>
+      <td>Marvin Harrison Jr.</td>
+      <td>WR</td>
+      <td>ARI</td>
+      <td>0.451</td>
+      <td>4.3</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>CM Skunks</td>
+      <td>Brian Thomas Jr.</td>
+      <td>WR</td>
+      <td>JAX</td>
+      <td>0.450</td>
+      <td>7.0</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Belichick Yo'self</td>
+      <td>Kyle Pitts</td>
+      <td>TE</td>
+      <td>ATL</td>
+      <td>0.447</td>
+      <td>0.0</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>My Diggs Curves Left</td>
+      <td>Jordan Addison</td>
+      <td>WR</td>
+      <td>MIN</td>
+      <td>0.438</td>
+      <td>0.0</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>My Diggs Curves Left</td>
+      <td>George Kittle</td>
+      <td>TE</td>
+      <td>SF</td>
+      <td>0.419</td>
+      <td>3.2</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>1ST &amp; SKOL</td>
+      <td>Malik Washington</td>
+      <td>WR</td>
+      <td>MIA</td>
+      <td>0.405</td>
+      <td>6.3</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Sun Tzu's Battalion</td>
+      <td>Tyler Warren</td>
+      <td>TE</td>
+      <td>IND</td>
+      <td>0.403</td>
+      <td>10.3</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>Redzone</td>
+      <td>Harold Fannin Jr.</td>
+      <td>TE</td>
+      <td>CLE</td>
+      <td>0.402</td>
+      <td>4.1</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+    <tr>
+      <td>1ST &amp; SKOL</td>
+      <td>Mark Andrews</td>
+      <td>TE</td>
+      <td>BAL</td>
+      <td>0.400</td>
+      <td>8.9</td>
+      <td>🚨 BUY LOW / TRADE TARGET</td>
+    </tr>
+  </tbody>
+</table>
+    </div>
+
+    <!-- JAVASCRIPT: Dynamic Filtering & Table Sorting -->
+    <script>
+        // Raw Master Data serialized from Pandas
+        const masterSquadData = [{"fantasy_team":"1ST & SKOL","Slot":"WR","Player":"Tetairoa McMillan","Pos":"WR","Team":"CAR","WOPR (Opp)":0.666,"Surge":0.086,"PPR Avg":10.5,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"1ST & SKOL","Slot":"WR","Player":"Quentin Johnston","Pos":"WR","Team":"LAC","WOPR (Opp)":0.478,"Surge":0.045,"PPR Avg":3.7,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"1ST & SKOL","Slot":"BN","Player":"Marvin Harrison Jr.","Pos":"WR","Team":"ARI","WOPR (Opp)":0.451,"Surge":0.154,"PPR Avg":4.3,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"1ST & SKOL","Slot":"TE","Player":"Dallas Goedert","Pos":"TE","Team":"PHI","WOPR (Opp)":0.443,"Surge":-0.06,"PPR Avg":23.7,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"1ST & SKOL","Slot":"BN","Player":"Malik Washington","Pos":"WR","Team":"MIA","WOPR (Opp)":0.405,"Surge":-0.345,"PPR Avg":6.3,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"1ST & SKOL","Slot":"BN","Player":"Mark Andrews","Pos":"TE","Team":"BAL","WOPR (Opp)":0.4,"Surge":-0.089,"PPR Avg":8.9,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"1ST & SKOL","Slot":"RB","Player":"Jahmyr Gibbs","Pos":"RB","Team":"DET","WOPR (Opp)":0.234,"Surge":0.055,"PPR Avg":33.6,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"1ST & SKOL","Slot":"RB","Player":"Ashton Jeanty","Pos":"RB","Team":"LV","WOPR (Opp)":0.227,"Surge":-0.139,"PPR Avg":32.7,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"1ST & SKOL","Slot":"BN","Player":"Aaron Jones","Pos":"RB","Team":"MIN","WOPR (Opp)":0.173,"Surge":0.092,"PPR Avg":10.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"1ST & SKOL","Slot":"W\/R\/T","Player":"Javonte Williams","Pos":"RB","Team":"DAL","WOPR (Opp)":0.145,"Surge":-0.08,"PPR Avg":24.2,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"1ST & SKOL","Slot":"BN","Player":"Kaelon Black","Pos":"RB","Team":"SF","WOPR (Opp)":0.021,"Surge":0.0,"PPR Avg":8.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Belichick Yo'self","Slot":"W\/R\/T","Player":"Zay Flowers","Pos":"WR","Team":"BAL","WOPR (Opp)":0.678,"Surge":0.067,"PPR Avg":26.0,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Belichick Yo'self","Slot":"WR","Player":"A.J. Brown","Pos":"WR","Team":"NE","WOPR (Opp)":0.569,"Surge":0.315,"PPR Avg":5.6,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Belichick Yo'self","Slot":"WR","Player":"George Pickens","Pos":"WR","Team":"DAL","WOPR (Opp)":0.556,"Surge":0.021,"PPR Avg":5.8,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Belichick Yo'self","Slot":"BN","Player":"Deebo Samuel Sr.","Pos":"WR","Team":"SF","WOPR (Opp)":0.453,"Surge":0.064,"PPR Avg":18.0,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Belichick Yo'self","Slot":"TE","Player":"Kyle Pitts","Pos":"TE","Team":"ATL","WOPR (Opp)":0.447,"Surge":0.132,"PPR Avg":0.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Belichick Yo'self","Slot":"BN","Player":"Matthew Golden","Pos":"WR","Team":"GB","WOPR (Opp)":0.404,"Surge":-0.25,"PPR Avg":15.5,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Belichick Yo'self","Slot":"RB","Player":"Christian McCaffrey","Pos":"RB","Team":"SF","WOPR (Opp)":0.392,"Surge":0.053,"PPR Avg":13.8,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Belichick Yo'self","Slot":"BN","Player":"Rashid Shaheed","Pos":"WR","Team":"SEA","WOPR (Opp)":0.369,"Surge":0.095,"PPR Avg":1.4,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Belichick Yo'self","Slot":"RB","Player":"Rico Dowdle","Pos":"RB","Team":"PIT","WOPR (Opp)":0.158,"Surge":-0.052,"PPR Avg":4.1,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Belichick Yo'self","Slot":"BN","Player":"Jonathon Brooks","Pos":"RB","Team":"CAR","WOPR (Opp)":0.146,"Surge":0.0,"PPR Avg":7.2,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Belichick Yo'self","Slot":"BN","Player":"Tyler Allgeier","Pos":"RB","Team":"ARI","WOPR (Opp)":0.05,"Surge":-0.019,"PPR Avg":9.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Big Nasty","Slot":"WR","Player":"DeVonta Smith","Pos":"WR","Team":"PHI","WOPR (Opp)":0.608,"Surge":-0.047,"PPR Avg":8.3,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Big Nasty","Slot":"WR","Player":"Terry McLaurin","Pos":"WR","Team":"WAS","WOPR (Opp)":0.52,"Surge":0.265,"PPR Avg":3.4,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Big Nasty","Slot":"BN","Player":"Keenan Allen","Pos":"WR","Team":"IND","WOPR (Opp)":0.468,"Surge":0.081,"PPR Avg":9.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Big Nasty","Slot":"BN","Player":"Hunter Henry","Pos":"TE","Team":"NE","WOPR (Opp)":0.31,"Surge":0.127,"PPR Avg":5.6,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Big Nasty","Slot":"TE","Player":"Jake Ferguson","Pos":"TE","Team":"DAL","WOPR (Opp)":0.261,"Surge":0.147,"PPR Avg":2.6,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Big Nasty","Slot":"RB","Player":"Chase Brown","Pos":"RB","Team":"CIN","WOPR (Opp)":0.225,"Surge":-0.002,"PPR Avg":18.8,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Big Nasty","Slot":"W\/R\/T","Player":"David Montgomery","Pos":"RB","Team":"HOU","WOPR (Opp)":0.095,"Surge":-0.037,"PPR Avg":28.9,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Big Nasty","Slot":"RB","Player":"Derrick Henry","Pos":"RB","Team":"BAL","WOPR (Opp)":0.071,"Surge":0.011,"PPR Avg":35.3,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"CM Skunks","Slot":"WR","Player":"Jaxon Smith-Njigba","Pos":"WR","Team":"SEA","WOPR (Opp)":0.908,"Surge":-0.125,"PPR Avg":26.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"CM Skunks","Slot":"WR","Player":"Nico Collins","Pos":"WR","Team":"HOU","WOPR (Opp)":0.617,"Surge":-0.049,"PPR Avg":21.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"CM Skunks","Slot":"BN","Player":"Wan'Dale Robinson","Pos":"WR","Team":"TEN","WOPR (Opp)":0.591,"Surge":0.185,"PPR Avg":8.8,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"CM Skunks","Slot":"W\/R\/T","Player":"Ladd McConkey","Pos":"WR","Team":"LAC","WOPR (Opp)":0.526,"Surge":-0.111,"PPR Avg":19.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"CM Skunks","Slot":"BN","Player":"Brian Thomas Jr.","Pos":"WR","Team":"JAX","WOPR (Opp)":0.45,"Surge":0.109,"PPR Avg":7.0,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"CM Skunks","Slot":"TE","Player":"Tucker Kraft","Pos":"TE","Team":"GB","WOPR (Opp)":0.35,"Surge":0.003,"PPR Avg":9.5,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"CM Skunks","Slot":"RB","Player":"Bucky Irving","Pos":"RB","Team":"TB","WOPR (Opp)":0.176,"Surge":-0.09,"PPR Avg":20.3,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"CM Skunks","Slot":"RB","Player":"Quinshon Judkins","Pos":"RB","Team":"CLE","WOPR (Opp)":0.124,"Surge":-0.015,"PPR Avg":7.0,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"CM Skunks","Slot":"BN","Player":"Woody Marks","Pos":"RB","Team":"HOU","WOPR (Opp)":0.093,"Surge":0.057,"PPR Avg":5.0,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"CM Skunks","Slot":"BN","Player":"MarShawn Lloyd","Pos":"RB","Team":"GB","WOPR (Opp)":0.064,"Surge":0.0,"PPR Avg":3.7,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"CM Skunks","Slot":"BN","Player":"Jacory Croskey-Merritt","Pos":"RB","Team":"WAS","WOPR (Opp)":0.04,"Surge":0.004,"PPR Avg":12.6,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Flippin Phins","Slot":"WR","Player":"Justin Jefferson","Pos":"WR","Team":"MIN","WOPR (Opp)":0.782,"Surge":-0.123,"PPR Avg":31.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Flippin Phins","Slot":"BN","Player":"Carnell Tate","Pos":"WR","Team":"TEN","WOPR (Opp)":0.568,"Surge":0.0,"PPR Avg":7.8,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Flippin Phins","Slot":"BN","Player":"KC Concepcion","Pos":"WR","Team":"CLE","WOPR (Opp)":0.534,"Surge":0.0,"PPR Avg":7.8,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Flippin Phins","Slot":"WR","Player":"Christian Watson","Pos":"WR","Team":"GB","WOPR (Opp)":0.524,"Surge":0.034,"PPR Avg":32.7,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Flippin Phins","Slot":"BN","Player":"Juwan Johnson","Pos":"TE","Team":"NO","WOPR (Opp)":0.359,"Surge":0.045,"PPR Avg":14.4,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Flippin Phins","Slot":"TE","Player":"Colston Loveland","Pos":"TE","Team":"CHI","WOPR (Opp)":0.342,"Surge":0.16,"PPR Avg":0.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Flippin Phins","Slot":"BN","Player":"Kenny Gainwell","Pos":"RB","Team":"TB","WOPR (Opp)":0.187,"Surge":0.156,"PPR Avg":2.8,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Flippin Phins","Slot":"RB","Player":"Saquon Barkley","Pos":"RB","Team":"PHI","WOPR (Opp)":0.169,"Surge":0.036,"PPR Avg":9.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Flippin Phins","Slot":"RB","Player":"Kyren Williams","Pos":"RB","Team":"LA","WOPR (Opp)":0.148,"Surge":-0.038,"PPR Avg":15.5,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Flippin Phins","Slot":"BN","Player":"Mike Washington Jr.","Pos":"RB","Team":"LV","WOPR (Opp)":0.0,"Surge":0.0,"PPR Avg":4.1,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Lynch Mob","Slot":"W\/R\/T","Player":"DK Metcalf","Pos":"WR","Team":"PIT","WOPR (Opp)":0.626,"Surge":-0.13,"PPR Avg":8.0,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Lynch Mob","Slot":"WR","Player":"Ja'Marr Chase","Pos":"WR","Team":"CIN","WOPR (Opp)":0.623,"Surge":0.341,"PPR Avg":3.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Lynch Mob","Slot":"WR","Player":"DJ Moore","Pos":"WR","Team":"BUF","WOPR (Opp)":0.464,"Surge":-0.254,"PPR Avg":21.0,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Lynch Mob","Slot":"BN","Player":"Jakobi Meyers","Pos":"WR","Team":"JAX","WOPR (Opp)":0.452,"Surge":0.225,"PPR Avg":12.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Lynch Mob","Slot":"TE","Player":"Sam LaPorta","Pos":"TE","Team":"DET","WOPR (Opp)":0.382,"Surge":0.051,"PPR Avg":9.8,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Lynch Mob","Slot":"BN","Player":"Jalen Nailor","Pos":"WR","Team":"LV","WOPR (Opp)":0.335,"Surge":-0.122,"PPR Avg":5.7,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Lynch Mob","Slot":"BN","Player":"Kenyon Sadiq","Pos":"TE","Team":"NYJ","WOPR (Opp)":0.196,"Surge":0.0,"PPR Avg":11.4,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Lynch Mob","Slot":"RB","Player":"Jeremiyah Love","Pos":"RB","Team":"ARI","WOPR (Opp)":0.175,"Surge":0.0,"PPR Avg":13.0,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Lynch Mob","Slot":"RB","Player":"Breece Hall","Pos":"RB","Team":"NYJ","WOPR (Opp)":0.151,"Surge":0.008,"PPR Avg":19.8,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"My Diggs Curves Left","Slot":"WR","Player":"Jameson Williams","Pos":"WR","Team":"DET","WOPR (Opp)":0.571,"Surge":-0.205,"PPR Avg":8.5,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"My Diggs Curves Left","Slot":"BN","Player":"Stefon Diggs","Pos":"WR","Team":"WAS","WOPR (Opp)":0.5,"Surge":-0.148,"PPR Avg":15.5,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"My Diggs Curves Left","Slot":"BN","Player":"Jordan Addison","Pos":"WR","Team":"MIN","WOPR (Opp)":0.438,"Surge":0.2,"PPR Avg":0.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"My Diggs Curves Left","Slot":"TE","Player":"George Kittle","Pos":"TE","Team":"SF","WOPR (Opp)":0.419,"Surge":0.02,"PPR Avg":3.2,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"My Diggs Curves Left","Slot":"BN","Player":"Khalil Shakir","Pos":"WR","Team":"BUF","WOPR (Opp)":0.39,"Surge":-0.003,"PPR Avg":9.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"My Diggs Curves Left","Slot":"BN","Player":"Dalton Schultz","Pos":"TE","Team":"HOU","WOPR (Opp)":0.371,"Surge":-0.01,"PPR Avg":7.5,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"My Diggs Curves Left","Slot":"RB","Player":"James Cook","Pos":"RB","Team":"BUF","WOPR (Opp)":0.147,"Surge":-0.06,"PPR Avg":9.9,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"My Diggs Curves Left","Slot":"W\/R\/T","Player":"Chuba Hubbard","Pos":"RB","Team":"CAR","WOPR (Opp)":0.116,"Surge":-0.016,"PPR Avg":23.7,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"My Diggs Curves Left","Slot":"RB","Player":"D'Andre Swift","Pos":"RB","Team":"CHI","WOPR (Opp)":0.11,"Surge":0.043,"PPR Avg":32.4,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"My Diggs Curves Left","Slot":"BN","Player":"Keaton Mitchell","Pos":"RB","Team":"LAC","WOPR (Opp)":0.04,"Surge":0.04,"PPR Avg":0.9,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Purple People Eaters","Slot":"W\/R\/T","Player":"Garrett Wilson","Pos":"WR","Team":"NYJ","WOPR (Opp)":0.888,"Surge":0.11,"PPR Avg":13.9,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple People Eaters","Slot":"WR","Player":"Chris Olave","Pos":"WR","Team":"NO","WOPR (Opp)":0.722,"Surge":0.008,"PPR Avg":28.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple People Eaters","Slot":"WR","Player":"Drake London","Pos":"WR","Team":"ATL","WOPR (Opp)":0.674,"Surge":0.159,"PPR Avg":5.5,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple People Eaters","Slot":"BN","Player":"Rome Odunze","Pos":"WR","Team":"CHI","WOPR (Opp)":0.519,"Surge":0.148,"PPR Avg":7.2,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple People Eaters","Slot":"BN","Player":"Romeo Doubs","Pos":"WR","Team":"NE","WOPR (Opp)":0.461,"Surge":0.078,"PPR Avg":0.0,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple People Eaters","Slot":"TE","Player":"Dalton Kincaid","Pos":"TE","Team":"BUF","WOPR (Opp)":0.397,"Surge":-0.103,"PPR Avg":18.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Purple People Eaters","Slot":"RB","Player":"Bijan Robinson","Pos":"RB","Team":"ATL","WOPR (Opp)":0.363,"Surge":-0.154,"PPR Avg":31.3,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Purple People Eaters","Slot":"BN","Player":"Tyjae Spears","Pos":"RB","Team":"TEN","WOPR (Opp)":0.155,"Surge":-0.015,"PPR Avg":4.4,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Purple People Eaters","Slot":"BN","Player":"Tony Pollard","Pos":"RB","Team":"TEN","WOPR (Opp)":0.135,"Surge":-0.061,"PPR Avg":4.4,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Purple People Eaters","Slot":"BN","Player":"Kyle Monangai","Pos":"RB","Team":"CHI","WOPR (Opp)":0.101,"Surge":-0.034,"PPR Avg":20.4,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Purple People Eaters","Slot":"RB","Player":"Bhayshul Tuten","Pos":"RB","Team":"JAX","WOPR (Opp)":0.047,"Surge":-0.01,"PPR Avg":9.8,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Purple People Eaters","Slot":"BN","Player":"Brian Robinson","Pos":"RB","Team":"ATL","WOPR (Opp)":0.024,"Surge":0.024,"PPR Avg":3.1,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Purple Reign","Slot":"WR","Player":"Amon-Ra St. Brown","Pos":"WR","Team":"DET","WOPR (Opp)":0.753,"Surge":-0.022,"PPR Avg":28.7,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple Reign","Slot":"WR","Player":"Puka Nacua","Pos":"WR","Team":"LA","WOPR (Opp)":0.727,"Surge":-0.088,"PPR Avg":12.4,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple Reign","Slot":"W\/R\/T","Player":"Malik Nabers","Pos":"WR","Team":"NYG","WOPR (Opp)":0.725,"Surge":-0.035,"PPR Avg":12.9,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple Reign","Slot":"TE","Player":"Trey McBride","Pos":"TE","Team":"ARI","WOPR (Opp)":0.63,"Surge":-0.118,"PPR Avg":24.5,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple Reign","Slot":"BN","Player":"Parker Washington","Pos":"WR","Team":"JAX","WOPR (Opp)":0.533,"Surge":-0.191,"PPR Avg":19.3,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Purple Reign","Slot":"BN","Player":"Josh Downs","Pos":"WR","Team":"IND","WOPR (Opp)":0.368,"Surge":0.035,"PPR Avg":5.7,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Purple Reign","Slot":"BN","Player":"Isaiah Likely","Pos":"TE","Team":"NYG","WOPR (Opp)":0.347,"Surge":-0.25,"PPR Avg":27.8,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Purple Reign","Slot":"RB","Player":"Rhamondre Stevenson","Pos":"RB","Team":"NE","WOPR (Opp)":0.207,"Surge":-0.064,"PPR Avg":14.5,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Purple Reign","Slot":"RB","Player":"Jaylen Warren","Pos":"RB","Team":"PIT","WOPR (Opp)":0.14,"Surge":-0.093,"PPR Avg":10.3,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Purple Reign","Slot":"BN","Player":"Blake Corum","Pos":"RB","Team":"LA","WOPR (Opp)":0.03,"Surge":0.03,"PPR Avg":5.4,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Redzone","Slot":"WR","Player":"CeeDee Lamb","Pos":"WR","Team":"DAL","WOPR (Opp)":0.609,"Surge":0.005,"PPR Avg":15.4,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Redzone","Slot":"WR","Player":"Michael Wilson","Pos":"WR","Team":"ARI","WOPR (Opp)":0.503,"Surge":0.013,"PPR Avg":10.6,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Redzone","Slot":"W\/R\/T","Player":"Jalen Coker","Pos":"WR","Team":"CAR","WOPR (Opp)":0.461,"Surge":-0.173,"PPR Avg":33.8,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Redzone","Slot":"TE","Player":"Harold Fannin Jr.","Pos":"TE","Team":"CLE","WOPR (Opp)":0.402,"Surge":0.167,"PPR Avg":4.1,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Redzone","Slot":"RB","Player":"De'Von Achane","Pos":"RB","Team":"MIA","WOPR (Opp)":0.288,"Surge":0.001,"PPR Avg":10.6,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Redzone","Slot":"BN","Player":"Makai Lemon","Pos":"WR","Team":"PHI","WOPR (Opp)":0.273,"Surge":0.0,"PPR Avg":2.5,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Redzone","Slot":"RB","Player":"Travis Etienne","Pos":"RB","Team":"NO","WOPR (Opp)":0.171,"Surge":-0.086,"PPR Avg":14.8,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Redzone","Slot":"BN","Player":"Rachaad White","Pos":"RB","Team":"WAS","WOPR (Opp)":0.099,"Surge":0.018,"PPR Avg":4.7,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Redzone","Slot":"BN","Player":"Tank Bigsby","Pos":"RB","Team":"PHI","WOPR (Opp)":0.012,"Surge":0.012,"PPR Avg":0.3,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"BN","Player":"Mike Evans","Pos":"WR","Team":"SF","WOPR (Opp)":0.598,"Surge":0.031,"PPR Avg":16.9,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"W\/R\/T","Player":"Davante Adams","Pos":"WR","Team":"LA","WOPR (Opp)":0.589,"Surge":0.055,"PPR Avg":5.6,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"WR","Player":"Tee Higgins","Pos":"WR","Team":"CIN","WOPR (Opp)":0.535,"Surge":-0.092,"PPR Avg":8.9,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"TE","Player":"Tyler Warren","Pos":"TE","Team":"IND","WOPR (Opp)":0.403,"Surge":0.065,"PPR Avg":10.3,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"BN","Player":"Jayden Reed","Pos":"WR","Team":"GB","WOPR (Opp)":0.351,"Surge":0.014,"PPR Avg":5.0,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"BN","Player":"Chris Godwin Jr.","Pos":"WR","Team":"TB","WOPR (Opp)":0.343,"Surge":0.106,"PPR Avg":8.3,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"BN","Player":"KaVontae Turpin","Pos":"WR","Team":"DAL","WOPR (Opp)":0.131,"Surge":0.079,"PPR Avg":1.8,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"RB","Player":"Omarion Hampton","Pos":"RB","Team":"LAC","WOPR (Opp)":0.105,"Surge":0.105,"PPR Avg":8.3,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Sun Tzu's Battalion","Slot":"BN","Player":"Chris Rodriguez Jr.","Pos":"RB","Team":"JAX","WOPR (Opp)":0.017,"Surge":0.017,"PPR Avg":2.3,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Vader's Raiders","Slot":"WR","Player":"Emeka Egbuka","Pos":"WR","Team":"TB","WOPR (Opp)":0.637,"Surge":-0.108,"PPR Avg":11.3,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Vader's Raiders","Slot":"BN","Player":"Alec Pierce","Pos":"WR","Team":"IND","WOPR (Opp)":0.578,"Surge":-0.091,"PPR Avg":10.1,"Verdict":"\ud83d\udd25 CORE STARTER"},{"fantasy_team":"Vader's Raiders","Slot":"BN","Player":"Michael Pittman","Pos":"WR","Team":"PIT","WOPR (Opp)":0.387,"Surge":0.209,"PPR Avg":8.8,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Vader's Raiders","Slot":"TE","Player":"Michael Mayer","Pos":"TE","Team":"LV","WOPR (Opp)":0.335,"Surge":-0.114,"PPR Avg":9.2,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Vader's Raiders","Slot":"WR","Player":"Luther Burden III","Pos":"WR","Team":"CHI","WOPR (Opp)":0.302,"Surge":-0.066,"PPR Avg":9.5,"Verdict":"\ud83d\udc40 HOLD"},{"fantasy_team":"Vader's Raiders","Slot":"RB","Player":"Jonathan Taylor","Pos":"RB","Team":"IND","WOPR (Opp)":0.169,"Surge":-0.038,"PPR Avg":25.1,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Vader's Raiders","Slot":"RB","Player":"Cam Skattebo","Pos":"RB","Team":"NYG","WOPR (Opp)":0.142,"Surge":0.142,"PPR Avg":14.1,"Verdict":"\u26a0\ufe0f FLUKE RISK (Trade Out)"},{"fantasy_team":"Vader's Raiders","Slot":"W\/R\/T","Player":"Jadarian Price","Pos":"RB","Team":"SEA","WOPR (Opp)":0.12,"Surge":0.0,"PPR Avg":7.8,"Verdict":"\u2702\ufe0f DROP CANDIDATE"},{"fantasy_team":"Vader's Raiders","Slot":"BN","Player":"Jordan Mason","Pos":"RB","Team":"MIN","WOPR (Opp)":0.031,"Surge":0.031,"PPR Avg":11.9,"Verdict":"\ud83d\udc40 HOLD"}];
+        const masterTradeData = [{"Owner":"Purple People Eaters","Player":"Drake London","Pos":"WR","Team":"ATL","WOPR (Opp)":0.674,"PPR Avg":5.5,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"1ST & SKOL","Player":"Tetairoa McMillan","Pos":"WR","Team":"CAR","WOPR (Opp)":0.666,"PPR Avg":10.5,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Lynch Mob","Player":"DK Metcalf","Pos":"WR","Team":"PIT","WOPR (Opp)":0.626,"PPR Avg":8.0,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Lynch Mob","Player":"Ja'Marr Chase","Pos":"WR","Team":"CIN","WOPR (Opp)":0.623,"PPR Avg":3.2,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Big Nasty","Player":"DeVonta Smith","Pos":"WR","Team":"PHI","WOPR (Opp)":0.608,"PPR Avg":8.3,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"CM Skunks","Player":"Wan'Dale Robinson","Pos":"WR","Team":"TEN","WOPR (Opp)":0.591,"PPR Avg":8.8,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Sun Tzu's Battalion","Player":"Davante Adams","Pos":"WR","Team":"LA","WOPR (Opp)":0.589,"PPR Avg":5.6,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Vader's Raiders","Player":"Alec Pierce","Pos":"WR","Team":"IND","WOPR (Opp)":0.578,"PPR Avg":10.1,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"My Diggs Curves Left","Player":"Jameson Williams","Pos":"WR","Team":"DET","WOPR (Opp)":0.571,"PPR Avg":8.5,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Belichick Yo'self","Player":"A.J. Brown","Pos":"WR","Team":"NE","WOPR (Opp)":0.569,"PPR Avg":5.6,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Flippin Phins","Player":"Carnell Tate","Pos":"WR","Team":"TEN","WOPR (Opp)":0.568,"PPR Avg":7.8,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Belichick Yo'self","Player":"George Pickens","Pos":"WR","Team":"DAL","WOPR (Opp)":0.556,"PPR Avg":5.8,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Sun Tzu's Battalion","Player":"Tee Higgins","Pos":"WR","Team":"CIN","WOPR (Opp)":0.535,"PPR Avg":8.9,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Flippin Phins","Player":"KC Concepcion","Pos":"WR","Team":"CLE","WOPR (Opp)":0.534,"PPR Avg":7.8,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Big Nasty","Player":"Terry McLaurin","Pos":"WR","Team":"WAS","WOPR (Opp)":0.52,"PPR Avg":3.4,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Purple People Eaters","Player":"Rome Odunze","Pos":"WR","Team":"CHI","WOPR (Opp)":0.519,"PPR Avg":7.2,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Redzone","Player":"Michael Wilson","Pos":"WR","Team":"ARI","WOPR (Opp)":0.503,"PPR Avg":10.6,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"1ST & SKOL","Player":"Quentin Johnston","Pos":"WR","Team":"LAC","WOPR (Opp)":0.478,"PPR Avg":3.7,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Big Nasty","Player":"Keenan Allen","Pos":"WR","Team":"IND","WOPR (Opp)":0.468,"PPR Avg":9.2,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Purple People Eaters","Player":"Romeo Doubs","Pos":"WR","Team":"NE","WOPR (Opp)":0.461,"PPR Avg":0.0,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"1ST & SKOL","Player":"Marvin Harrison Jr.","Pos":"WR","Team":"ARI","WOPR (Opp)":0.451,"PPR Avg":4.3,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"CM Skunks","Player":"Brian Thomas Jr.","Pos":"WR","Team":"JAX","WOPR (Opp)":0.45,"PPR Avg":7.0,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Belichick Yo'self","Player":"Kyle Pitts","Pos":"TE","Team":"ATL","WOPR (Opp)":0.447,"PPR Avg":0.0,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"My Diggs Curves Left","Player":"Jordan Addison","Pos":"WR","Team":"MIN","WOPR (Opp)":0.438,"PPR Avg":0.0,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"My Diggs Curves Left","Player":"George Kittle","Pos":"TE","Team":"SF","WOPR (Opp)":0.419,"PPR Avg":3.2,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"1ST & SKOL","Player":"Malik Washington","Pos":"WR","Team":"MIA","WOPR (Opp)":0.405,"PPR Avg":6.3,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Sun Tzu's Battalion","Player":"Tyler Warren","Pos":"TE","Team":"IND","WOPR (Opp)":0.403,"PPR Avg":10.3,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"Redzone","Player":"Harold Fannin Jr.","Pos":"TE","Team":"CLE","WOPR (Opp)":0.402,"PPR Avg":4.1,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"},{"Owner":"1ST & SKOL","Player":"Mark Andrews","Pos":"TE","Team":"BAL","WOPR (Opp)":0.4,"PPR Avg":8.9,"Verdict":"\ud83d\udea8 BUY LOW \/ TRADE TARGET"}];
+
+        function filterTeamData() {
+            const selectedTeam = document.getElementById('teamSelect').value;
+            document.getElementById('activeTeamHeader').innerText = selectedTeam;
+
+            // 1. Filter Squad Table
+            const squadFiltered = masterSquadData.filter(row => row.fantasy_team === selectedTeam);
+            renderTable('squadTableContainer', squadFiltered, ['Slot', 'Player', 'Pos', 'Team', 'WOPR (Opp)', 'Surge', 'PPR Avg', 'Verdict']);
+
+            // 2. Filter Rival Trade Targets (Excludes active team)
+            const tradeFiltered = masterTradeData.filter(row => row.Owner !== selectedTeam);
+            renderTable('tradeTableContainer', tradeFiltered, ['Owner', 'Player', 'Pos', 'Team', 'WOPR (Opp)', 'PPR Avg', 'Verdict']);
+            
+            attachSortListeners();
+        }
+
+        function renderTable(containerId, data, columns) {
+            if (data.length === 0) {
+                document.getElementById(containerId).innerHTML = '<p style="color:#64748b; padding:15px;">No players match this criteria.</p>';
+                return;
+            }
+            let html = '<table class="sortable"><thead><tr>';
+            columns.forEach(col => html += `<th>${col}</th>`);
+            html += '</tr></thead><tbody>';
+            
+            data.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => html += `<td>${row[col] !== null ? row[col] : 'N/A'}</td>`);
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            document.getElementById(containerId).innerHTML = html;
+        }
+
+        function attachSortListeners() {
+            document.querySelectorAll('th').forEach(header => {
+                header.onclick = function() {
+                    const table = header.closest('table');
+                    const tbody = table.querySelector('tbody');
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+                    const index = Array.from(header.parentElement.children).indexOf(header);
+                    const isAscending = header.classList.contains('asc');
+                    
+                    rows.sort((a, b) => {
+                        const valA = a.children[index].innerText.trim();
+                        const valB = b.children[index].innerText.trim();
+                        const numA = parseFloat(valA);
+                        const numB = parseFloat(valB);
+                        
+                        if (!isNaN(numA) && !isNaN(numB)) {
+                            return isAscending ? numA - numB : numB - numA;
+                        }
+                        return isAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                    });
+                    
+                    rows.forEach(row => tbody.appendChild(row));
+                    header.parentElement.querySelectorAll('th').forEach(th => th.classList.remove('asc', 'desc'));
+                    header.classList.toggle('asc', !isAscending);
+                    header.classList.toggle('desc', isAscending);
+                };
+            });
+        }
+
+        // Initialize sort listeners on initial load
+        attachSortListeners();
+    </script>
+</body>
+</html>

@@ -1,0 +1,951 @@
+Vader's Raiders 
+
+Pos	Player
+QB	
+Baker Mayfield
+Baker MayfieldVideo ForecastNew Player Note
+TB - QB
+Final L 27-33 @ Cin
+RB	
+Jonathan Taylor
+Jonathan TaylorNew Player Note
+Ind - RB
+Final L 23-41 vs Bal
+RB	
+Cam Skattebo
+Cam SkatteboVideo ForecastNew Player Note
+NYG - RB
+Final W 28-20 vs Dal
+WR	
+Emeka Egbuka
+Emeka EgbukaVideo ForecastNew Player Note
+TB - WR
+Final L 27-33 @ Cin
+WR	
+Luther Burden III
+Luther Burden IIINew Player Note
+Chi - WR
+Final W 59-37 @ Car
+TE	
+Michael Mayer
+Michael MayerVideo ForecastNew Player Note
+LV - TE
+Final W 27-13 vs Mia
+W/R/T	
+Jadarian Price
+Jadarian PricePlayer Note
+Sea - RB
+Final W 13-10 vs NE
+K	
+Cairo Santos
+Cairo SantosNo new player Notes
+Chi - K
+Final W 59-37 @ Car
+DEF	
+Patriots
+PatriotsNo new player Notes
+NE - DEF
+Final L 10-13 @ Sea
+BN	
+Brock Bowers
+Brock BowersOVideo ForecastNew Player Note
+LV - TE
+Final W 27-13 vs Mia
+BN	
+Jordan Mason
+Jordan MasonVideo ForecastNew Player Note
+Min - RB
+Final W 39-22 vs GB
+BN	
+Alec Pierce
+Alec PierceQVideo ForecastNew Player Note
+Ind - WR
+Final L 23-41 vs Bal
+BN	
+De'Zhaun Stribling
+De'Zhaun StriblingDVideo ForecastNew Player Note
+SF - WR
+Final W 27-7 @ LAR
+BN	
+Michael Pittman Jr.
+Michael Pittman Jr.New Player Note
+Pit - WR
+Final W 20-13 vs Atl
+BN	
+Malik Willis
+Malik WillisVideo ForecastNew Player Note
+Mia - QB
+Final L 13-27 @ LV
+Belichick Yo'self 
+
+Pos	Player
+QB	
+Dak Prescott
+Dak PrescottNew Player Note
+Dal - QB
+Final L 20-28 @ NYG
+RB	
+Christian McCaffrey
+Christian McCaffreyVideo ForecastPlayer Note
+SF - RB
+Final W 27-7 @ LAR
+RB	
+Rico Dowdle
+Rico DowdleNew Player Note
+Pit - RB
+Final W 20-13 vs Atl
+WR	
+A.J. Brown
+A.J. BrownIRVideo ForecastNew Player Note
+NE - WR
+Final L 10-13 @ Sea
+WR	
+George Pickens
+George PickensNew Player Note
+Dal - WR
+Final L 20-28 @ NYG
+TE	
+Kyle Pitts Sr.
+Kyle Pitts Sr.New Player Note
+Atl - TE
+Final L 13-20 @ Pit
+W/R/T	
+Zay Flowers
+Zay FlowersQVideo ForecastNew Player Note
+Bal - WR
+Final W 41-23 @ Ind
+K	
+Jake Bates
+Jake BatesNo new player Notes
+Det - K
+Final W 31-30 vs NO
+DEF	
+Steelers
+SteelersNo new player Notes
+Pit - DEF
+Final W 20-13 vs Atl
+BN	
+Jonathon Brooks
+Jonathon BrooksNew Player Note
+Car - RB
+Final L 37-59 vs Chi
+BN	
+Matthew Golden
+Matthew GoldenVideo ForecastNew Player Note
+GB - WR
+Final L 22-39 @ Min
+BN	
+RJ Harvey
+RJ HarveyNo new player Notes
+Den - RB
+Mon 7:15 pm @ KC
+BN	
+Rashid Shaheed
+Rashid ShaheedPlayer Note
+Sea - WR
+Final W 13-10 vs NE
+BN	
+Deebo Samuel Sr.
+Deebo Samuel Sr.Video ForecastPlayer Note
+SF - WR
+Final W 27-7 @ LAR
+BN	
+Tyler Allgeier
+Tyler AllgeierVideo ForecastNew Player Note
+Ari - RB
+Final W 26-14 @ LAC
+IR	
+TreVeyon Henderson
+TreVeyon HendersonOVideo ForecastPlayer Note
+NE - RB
+Final L 10-13 @ Sea
+CM Skunks 
+
+Pos	Player
+QB	
+Brock Purdy
+Brock PurdyVideo ForecastPlayer Note
+SF - QB
+Final W 27-7 @ LAR
+RB	
+Quinshon Judkins
+Quinshon JudkinsVideo ForecastNew Player Note
+Cle - RB
+Final L 10-34 @ Jax
+RB	
+Bucky Irving
+Bucky IrvingVideo ForecastNew Player Note
+TB - RB
+Final L 27-33 @ Cin
+WR	
+Jaxon Smith-Njigba
+Jaxon Smith-NjigbaVideo ForecastPlayer Note
+Sea - WR
+Final W 13-10 vs NE
+WR	
+Nico Collins
+Nico CollinsVideo ForecastNew Player Note
+Hou - WR
+Final L 31-36 vs Buf
+TE	
+Tucker Kraft
+Tucker KraftNew Player Note
+GB - TE
+Final L 22-39 @ Min
+W/R/T	
+Ladd McConkey
+Ladd McConkeyQVideo ForecastNew Player Note
+LAC - WR
+Final L 14-26 vs Ari
+K	
+Chase McLaughlin
+Chase McLaughlinNo new player Notes
+TB - K
+Final L 27-33 @ Cin
+DEF	
+Lions
+LionsNo new player Notes
+Det - DEF
+Final W 31-30 vs NO
+BN	
+MarShawn Lloyd
+MarShawn LloydVideo ForecastNew Player Note
+GB - RB
+Final L 22-39 @ Min
+BN	
+Brian Thomas Jr.
+Brian Thomas Jr.Video ForecastNew Player Note
+Jax - WR
+Final W 34-10 vs Cle
+BN	
+Jacory Croskey-Merritt
+Jacory Croskey-MerrittNew Player Note
+Was - RB
+Final L 22-24 @ Phi
+BN	
+Woody Marks
+Woody MarksVideo ForecastNew Player Note
+Hou - RB
+Final L 31-36 vs Buf
+BN	
+Wan'Dale Robinson
+Wan'Dale RobinsonVideo ForecastNew Player Note
+Ten - WR
+Final L 10-23 vs NYJ
+BN	
+Jared Goff
+Jared GoffNew Player Note
+Det - QB
+Final W 31-30 vs NO
+Flippin Phins 
+
+Pos	Player
+QB	
+Caleb Williams
+Caleb WilliamsNew Player Note
+Chi - QB
+Final W 59-37 @ Car
+RB	
+Saquon Barkley
+Saquon BarkleyVideo ForecastNew Player Note
+Phi - RB
+Final W 24-22 vs Was
+RB	
+Kyren Williams
+Kyren WilliamsVideo ForecastPlayer Note
+LAR - RB
+Final L 7-27 vs SF
+WR	
+Justin Jefferson
+Justin JeffersonVideo ForecastNew Player Note
+Min - WR
+Final W 39-22 vs GB
+WR	
+Christian Watson
+Christian WatsonNew Player Note
+GB - WR
+Final L 22-39 @ Min
+TE	
+Colston Loveland
+Colston LovelandVideo ForecastNew Player Note
+Chi - TE
+Final W 59-37 @ Car
+W/R/T	
+J.K. Dobbins
+J.K. DobbinsPlayer Note
+Den - RB
+Mon 7:15 pm @ KC
+K	
+Evan McPherson
+Evan McPhersonNew Player Note
+Cin - K
+Final W 33-27 vs TB
+DEF	
+Ravens
+RavensNo new player Notes
+Bal - DEF
+Final W 41-23 @ Ind
+BN	
+Carnell Tate
+Carnell TateVideo ForecastNew Player Note
+Ten - WR
+Final L 10-23 vs NYJ
+BN	
+Kenny Gainwell
+Kenny GainwellNew Player Note
+TB - RB
+Final L 27-33 @ Cin
+BN	
+KC Concepcion
+KC ConcepcionVideo ForecastNew Player Note
+Cle - WR
+Final L 10-34 @ Jax
+BN	
+Mike Washington Jr.
+Mike Washington Jr.New Player Note
+LV - RB
+Final W 27-13 vs Mia
+BN	
+Juwan Johnson
+Juwan JohnsonVideo ForecastNew Player Note
+NO - TE
+Final L 30-31 @ Det
+BN	
+Tyler Shough
+Tyler ShoughVideo ForecastNew Player Note
+NO - QB
+Final L 30-31 @ Det
+Lynch Mob 
+
+Pos	Player
+QB	
+Joe Burrow
+Joe BurrowVideo ForecastNew Player Note
+Cin - QB
+Final W 33-27 vs TB
+RB	
+Jeremiyah Love
+Jeremiyah LoveVideo ForecastNew Player Note
+Ari - RB
+Final W 26-14 @ LAC
+RB	
+Breece Hall
+Breece HallNew Player Note
+NYJ - RB
+Final W 23-10 @ Ten
+WR	
+Ja'Marr Chase
+Ja'Marr ChaseNew Player Note
+Cin - WR
+Final W 33-27 vs TB
+WR	
+DJ Moore
+DJ MooreNew Player Note
+Buf - WR
+Final W 36-31 @ Hou
+TE	
+Sam LaPorta
+Sam LaPortaNew Player Note
+Det - TE
+Final W 31-30 vs NO
+W/R/T	
+DK Metcalf
+DK MetcalfVideo ForecastNew Player Note
+Pit - WR
+Final W 20-13 vs Atl
+K	
+Matt Gay
+Matt GayNo new player Notes
+LV - K
+Final W 27-13 vs Mia
+DEF	
+Raiders
+RaidersNo new player Notes
+LV - DEF
+Final W 27-13 vs Mia
+BN	
+Josh Jacobs
+Josh JacobsCELNew Player Note
+GB - RB
+Final L 22-39 @ Min
+BN	
+Jakobi Meyers
+Jakobi MeyersVideo ForecastNew Player Note
+Jax - WR
+Final W 34-10 vs Cle
+BN	
+Kenyon Sadiq
+Kenyon SadiqNew Player Note
+NYJ - TE
+Final W 23-10 @ Ten
+BN	
+Jalen Nailor
+Jalen NailorVideo ForecastNew Player Note
+LV - WR
+Final W 27-13 vs Mia
+BN	
+C.J. Stroud
+C.J. StroudVideo ForecastNew Player Note
+Hou - QB
+Final L 31-36 vs Buf
+IR	
+Jordyn Tyson
+Jordyn TysonIR-RNo new player Notes
+NO - WR
+Final L 30-31 @ Det
+BN	
+Texans
+TexansNo new player Notes
+Hou - DEF
+Final L 31-36 vs Buf
+Purple People Eaters 
+
+Pos	Player
+QB	
+Trevor Lawrence
+Trevor LawrenceNew Player Note
+Jax - QB
+Final W 34-10 vs Cle
+RB	
+Bijan Robinson
+Bijan RobinsonVideo ForecastNew Player Note
+Atl - RB
+Final L 13-20 @ Pit
+RB	
+Bhayshul Tuten
+Bhayshul TutenVideo ForecastNew Player Note
+Jax - RB
+Final W 34-10 vs Cle
+WR	
+Drake London
+Drake LondonVideo ForecastNew Player Note
+Atl - WR
+Final L 13-20 @ Pit
+WR	
+Chris Olave
+Chris OlaveNew Player Note
+NO - WR
+Final L 30-31 @ Det
+TE	
+Dalton Kincaid
+Dalton KincaidNew Player Note
+Buf - TE
+Final W 36-31 @ Hou
+W/R/T	
+Garrett Wilson
+Garrett WilsonNew Player Note
+NYJ - WR
+Final W 23-10 @ Ten
+K	
+Tyler Loop
+Tyler LoopNo new player Notes
+Bal - K
+Final W 41-23 @ Ind
+DEF	
+Vikings
+VikingsNo new player Notes
+Min - DEF
+Final W 39-22 vs GB
+BN	
+Tony Pollard
+Tony PollardNew Player Note
+Ten - RB
+Final L 10-23 vs NYJ
+BN	
+Rome Odunze
+Rome OdunzeNew Player Note
+Chi - WR
+Final W 59-37 @ Car
+BN	
+Kyle Monangai
+Kyle MonangaiNew Player Note
+Chi - RB
+Final W 59-37 @ Car
+BN	
+Brian Robinson
+Brian RobinsonNew Player Note
+Atl - RB
+Final L 13-20 @ Pit
+BN	
+Romeo Doubs
+Romeo DoubsVideo ForecastPlayer Note
+NE - WR
+Final L 10-13 @ Sea
+BN	
+Tyjae Spears
+Tyjae SpearsNew Player Note
+Ten - RB
+Final L 10-23 vs NYJ
+Redzone 
+
+Pos	Player
+QB	
+Lamar Jackson
+Lamar JacksonVideo ForecastNew Player Note
+Bal - QB
+Final W 41-23 @ Ind
+RB	
+De'Von Achane
+De'Von AchaneNew Player Note
+Mia - RB
+Final L 13-27 @ LV
+RB	
+Travis Etienne Jr.
+Travis Etienne Jr.Video ForecastNew Player Note
+NO - RB
+Final L 30-31 @ Det
+WR	
+CeeDee Lamb
+CeeDee LambNew Player Note
+Dal - WR
+Final L 20-28 @ NYG
+WR	
+Michael Wilson
+Michael WilsonNew Player Note
+Ari - WR
+Final W 26-14 @ LAC
+TE	
+Harold Fannin Jr.
+Harold Fannin Jr.New Player Note
+Cle - TE
+Final L 10-34 @ Jax
+W/R/T	
+Jalen Coker
+Jalen CokerVideo ForecastNew Player Note
+Car - WR
+Final L 37-59 vs Chi
+K	
+Jason Myers
+Jason MyersPlayer Note
+Sea - K
+Final W 13-10 vs NE
+DEF	
+Rams
+RamsNo new player Notes
+LAR - DEF
+Final L 7-27 vs SF
+BN	
+Travis Kelce
+Travis KelceNo new player Notes
+KC - TE
+Mon 7:15 pm vs Den
+BN	
+Kyler Murray
+Kyler MurrayQVideo ForecastNew Player Note
+Min - QB
+Final W 39-22 vs GB
+BN	
+Rachaad White
+Rachaad WhiteNew Player Note
+Was - RB
+Final L 22-24 @ Phi
+BN	
+Makai Lemon
+Makai LemonVideo ForecastNew Player Note
+Phi - WR
+Final W 24-22 vs Was
+BN	
+Tank Bigsby
+Tank BigsbyNo new player Notes
+Phi - RB
+Final W 24-22 vs Was
+BN	
+Jonah Coleman
+Jonah ColemanNo new player Notes
+Den - RB
+Mon 7:15 pm @ KC
+Sun Tzu's Battalion 
+
+Pos	Player
+QB	
+Drake Maye
+Drake MayeVideo ForecastPlayer Note
+NE - QB
+Final L 10-13 @ Sea
+RB	
+Kenneth Walker
+Kenneth WalkerVideo ForecastNo new player Notes
+KC - RB
+Mon 7:15 pm vs Den
+RB	
+Omarion Hampton
+Omarion HamptonVideo ForecastNew Player Note
+LAC - RB
+Final L 14-26 vs Ari
+WR	
+Tee Higgins
+Tee HigginsVideo ForecastNew Player Note
+Cin - WR
+Final W 33-27 vs TB
+WR	
+Jaylen Waddle
+Jaylen WaddleVideo ForecastNo new player Notes
+Den - WR
+Mon 7:15 pm @ KC
+TE	
+Tyler Warren
+Tyler WarrenVideo ForecastNew Player Note
+Ind - TE
+Final L 23-41 vs Bal
+W/R/T	
+Davante Adams
+Davante AdamsVideo ForecastPlayer Note
+LAR - WR
+Final L 7-27 vs SF
+K	
+Ka'imi Fairbairn
+Ka'imi FairbairnNo new player Notes
+Hou - K
+Final L 31-36 vs Buf
+DEF	
+Jaguars
+JaguarsNo new player Notes
+Jax - DEF
+Final W 34-10 vs Cle
+BN	
+Mike Evans
+Mike EvansVideo ForecastPlayer Note
+SF - WR
+Final W 27-7 @ LAR
+BN	
+Chris Godwin Jr.
+Chris Godwin Jr.Video ForecastNew Player Note
+TB - WR
+Final L 27-33 @ Cin
+BN	
+Jayden Reed
+Jayden ReedNew Player Note
+GB - WR
+Final L 22-39 @ Min
+BN	
+Chris Rodriguez Jr.
+Chris Rodriguez Jr.New Player Note
+Jax - RB
+Final W 34-10 vs Cle
+BN	
+Matthew Stafford
+Matthew StaffordVideo ForecastPlayer Note
+LAR - QB
+Final L 7-27 vs SF
+BN	
+KaVontae Turpin
+KaVontae TurpinNo new player Notes
+Dal - WR
+Final L 20-28 @ NYG
+1ST & SKOL 
+
+Pos	Player
+QB	
+Jalen Hurts
+Jalen HurtsNew Player Note
+Phi - QB
+Final W 24-22 vs Was
+RB	
+Jahmyr Gibbs
+Jahmyr GibbsNew Player Note
+Det - RB
+Final W 31-30 vs NO
+RB	
+Ashton Jeanty
+Ashton JeantyVideo ForecastNew Player Note
+LV - RB
+Final W 27-13 vs Mia
+WR	
+Tetairoa McMillan
+Tetairoa McMillanVideo ForecastNew Player Note
+Car - WR
+Final L 37-59 vs Chi
+WR	
+Quentin Johnston
+Quentin JohnstonVideo ForecastNew Player Note
+LAC - WR
+Final L 14-26 vs Ari
+TE	
+Dallas Goedert
+Dallas GoedertNew Player Note
+Phi - TE
+Final W 24-22 vs Was
+W/R/T	
+Javonte Williams
+Javonte WilliamsVideo ForecastNew Player Note
+Dal - RB
+Final L 20-28 @ NYG
+K	
+Harrison Mevis
+Harrison MevisPlayer Note
+LAR - K
+Final L 7-27 vs SF
+DEF	
+Broncos
+BroncosNo new player Notes
+Den - DEF
+Mon 7:15 pm @ KC
+BN	
+Marvin Harrison Jr.
+Marvin Harrison Jr.Video ForecastNew Player Note
+Ari - WR
+Final W 26-14 @ LAC
+BN	
+Aaron Jones Sr.
+Aaron Jones Sr.Video ForecastNew Player Note
+Min - RB
+Final W 39-22 vs GB
+BN	
+Mark Andrews
+Mark AndrewsNew Player Note
+Bal - TE
+Final W 41-23 @ Ind
+BN	
+Malik Washington
+Malik WashingtonNew Player Note
+Mia - WR
+Final L 13-27 @ LV
+BN	
+Cyrus Allen
+Cyrus AllenPlayer Note
+KC - WR
+Mon 7:15 pm vs Den
+BN	
+Kaelon Black
+Kaelon BlackVideo ForecastPlayer Note
+SF - RB
+Final W 27-7 @ LAR
+IR	
+Zach Charbonnet
+Zach CharbonnetPUP-RPlayer Note
+Sea - RB
+Final W 13-10 vs NE
+Purple Reign 
+
+Pos	Player
+QB	
+Justin Herbert
+Justin HerbertVideo ForecastNew Player Note
+LAC - QB
+Final L 14-26 vs Ari
+RB	
+Rhamondre Stevenson
+Rhamondre StevensonVideo ForecastPlayer Note
+NE - RB
+Final L 10-13 @ Sea
+RB	
+Jaylen Warren
+Jaylen WarrenNew Player Note
+Pit - RB
+Final W 20-13 vs Atl
+WR	
+Amon-Ra St. Brown
+Amon-Ra St. BrownNew Player Note
+Det - WR
+Final W 31-30 vs NO
+WR	
+Puka Nacua
+Puka NacuaPlayer Note
+LAR - WR
+Final L 7-27 vs SF
+TE	
+Trey McBride
+Trey McBrideNew Player Note
+Ari - TE
+Final W 26-14 @ LAC
+W/R/T	
+Malik Nabers
+Malik NabersVideo ForecastNew Player Note
+NYG - WR
+Final W 28-20 vs Dal
+K	
+Cameron Dicker
+Cameron DickerPlayer Note
+LAC - K
+Final L 14-26 vs Ari
+DEF	
+Cowboys
+CowboysNo new player Notes
+Dal - DEF
+Final L 20-28 @ NYG
+BN	
+Parker Washington
+Parker WashingtonVideo ForecastNew Player Note
+Jax - WR
+Final W 34-10 vs Cle
+BN	
+Blake Corum
+Blake CorumVideo ForecastPlayer Note
+LAR - RB
+Final L 7-27 vs SF
+BN	
+Josh Downs
+Josh DownsVideo ForecastNew Player Note
+Ind - WR
+Final L 23-41 vs Bal
+BN	
+Bo Nix
+Bo NixNo new player Notes
+Den - QB
+Mon 7:15 pm @ KC
+BN	
+Isaiah Likely
+Isaiah LikelyNew Player Note
+NYG - TE
+Final W 28-20 vs Dal
+BN	
+Jordan Love
+Jordan LoveVideo ForecastNew Player Note
+GB - QB
+Final L 22-39 @ Min
+My Diggs Curves Left 
+
+Pos	Player
+QB	
+Josh Allen
+Josh AllenNew Player Note
+Buf - QB
+Final W 36-31 @ Hou
+RB	
+James Cook III
+James Cook IIINew Player Note
+Buf - RB
+Final W 36-31 @ Hou
+RB	
+D'Andre Swift
+D'Andre SwiftNew Player Note
+Chi - RB
+Final W 59-37 @ Car
+WR	
+Rashee Rice
+Rashee RiceVideo ForecastPlayer Note
+KC - WR
+Mon 7:15 pm vs Den
+WR	
+Jameson Williams
+Jameson WilliamsVideo ForecastNew Player Note
+Det - WR
+Final W 31-30 vs NO
+TE	
+George Kittle
+George KittlePlayer Note
+SF - TE
+Final W 27-7 @ LAR
+W/R/T	
+Chuba Hubbard
+Chuba HubbardVideo ForecastNew Player Note
+Car - RB
+Final L 37-59 vs Chi
+K	
+Cam Little
+Cam LittleNew Player Note
+Jax - K
+Final W 34-10 vs Cle
+DEF	
+Eagles
+EaglesNo new player Notes
+Phi - DEF
+Final W 24-22 vs Was
+BN	
+Dalton Schultz
+Dalton SchultzNew Player Note
+Hou - TE
+Final L 31-36 vs Buf
+BN	
+Jordan Addison
+Jordan AddisonVideo ForecastNew Player Note
+Min - WR
+Final W 39-22 vs GB
+BN	
+Stefon Diggs
+Stefon DiggsNew Player Note
+Was - WR
+Final L 22-24 @ Phi
+BN	
+Jaxson Dart
+Jaxson DartVideo ForecastNew Player Note
+NYG - QB
+Final W 28-20 vs Dal
+BN	
+Keaton Mitchell
+Keaton MitchellVideo ForecastNew Player Note
+LAC - RB
+Final L 14-26 vs Ari
+BN	
+Khalil Shakir
+Khalil ShakirNew Player Note
+Buf - WR
+Final W 36-31 @ Hou
+Big Nasty 
+
+Pos	Player
+QB	
+Jayden Daniels
+Jayden DanielsVideo ForecastNew Player Note
+Was - QB
+Final L 22-24 @ Phi
+RB	
+Derrick Henry
+Derrick HenryVideo ForecastNew Player Note
+Bal - RB
+Final W 41-23 @ Ind
+RB	
+Chase Brown
+Chase BrownVideo ForecastNew Player Note
+Cin - RB
+Final W 33-27 vs TB
+WR	
+DeVonta Smith
+DeVonta SmithNew Player Note
+Phi - WR
+Final W 24-22 vs Was
+WR	
+Terry McLaurin
+Terry McLaurinVideo ForecastNew Player Note
+Was - WR
+Final L 22-24 @ Phi
+TE	
+Jake Ferguson
+Jake FergusonNew Player Note
+Dal - TE
+Final L 20-28 @ NYG
+W/R/T	
+David Montgomery
+David MontgomeryVideo ForecastNew Player Note
+Hou - RB
+Final L 31-36 vs Buf
+K	
+Brandon Aubrey
+Brandon AubreyNo new player Notes
+Dal - K
+Final L 20-28 @ NYG
+DEF	
+Titans
+TitansNo new player Notes
+Ten - DEF
+Final L 10-23 vs NYJ
+BN	
+Hunter Henry
+Hunter HenryPlayer Note
+NE - TE
+Final L 10-13 @ Sea
+BN	
+Patrick Mahomes
+Patrick MahomesPlayer Note
+KC - QB
+Mon 7:15 pm vs Den
+BN	
+Courtland Sutton
+Courtland SuttonNo new player Notes
+Den - WR
+Mon 7:15 pm @ KC
+BN	
+Xavier Worthy
+Xavier WorthyPlayer Note
+KC - WR
+Mon 7:15 pm vs Den
+BN	
+Keenan Allen
+Keenan AllenVideo ForecastNew Player Note
+Ind - WR
+Final L 23-41 vs Bal
+BN	
+Seahawks
+SeahawksNo new player Notes
+Sea - DEF
+Final W 13-10 vs NE
