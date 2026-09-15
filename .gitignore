@@ -1,0 +1,14 @@
+# Ignore secret credentials & local environments
+.env
+config.json
+oauth_tokens.json
+oauth2.json
+
+# Ignore local data exports
+all_league_rosters.csv
+
+# Ignore Python cache & virtual environments
+__pycache__/
+*.pyc
+venv/
+.venv/

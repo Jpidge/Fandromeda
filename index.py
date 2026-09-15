@@ -7,7 +7,7 @@ import nflreadpy as nfl
 import pandas as pd
 
 print(
-    "🚀 Loading nflverse multi-position data & building Fandrameda Interactive Dashboard..."
+    "🚀 Loading nflverse multi-position data & building Fandromeda Interactive Dashboard..."
 )
 
 # 1. Load Data
@@ -64,15 +64,30 @@ for col in cols_to_fill:
         df_nfl[col] = 0.0
 
 
-# 4. Pre-Calculate Position Opportunity Score in Pandas
+# 4. Pre-Calculate Position Opportunity Score in Pandas with Fallbacks
 def calc_pos_opp(row):
     pos = row["position"]
+    carries = row.get("carries", 0.0)
+    targets = row.get("targets", 0.0)
+    attempts = row.get("attempts", 0.0)
+
+    target_share = row.get("target_share", 0.0)
+    air_yards_share = row.get("air_yards_share", 0.0)
+    rushing_share = row.get("rushing_share", 0.0)
+
+    # Fallback logic if nflreadpy missing/0.0 shares despite active touches
+    if rushing_share == 0.0 and carries > 0:
+        rushing_share = min(1.0, carries / 25.0)
+
+    if target_share == 0.0 and targets > 0:
+        target_share = min(1.0, targets / 35.0)
+
     if pos in ["WR", "TE"]:
-        return 1.5 * row["target_share"] + 0.7 * row["air_yards_share"]
+        return 1.5 * target_share + 0.7 * air_yards_share
     elif pos == "RB":
-        return row["rushing_share"] + 1.5 * row["target_share"]
+        return rushing_share + 1.5 * target_share
     elif pos == "QB":
-        return (row["attempts"] + row["carries"]) / 50.0
+        return (attempts + carries) / 50.0
     return 0.0
 
 
@@ -108,6 +123,8 @@ current_season AS (
         pos_opp_score,
         AVG(pos_opp_score) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_opp,
         AVG(fantasy_points_ppr) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_ppr,
+        AVG(carries + targets) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_touches,
+        AVG(targets) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_targets,
         LAG(pos_opp_score, 2, pos_opp_score) OVER (PARTITION BY clean_name ORDER BY week) as prev_opp_base,
         COUNT(week) OVER (PARTITION BY clean_name) as weeks_played
     FROM df_nfl WHERE season = 2026
@@ -120,7 +137,7 @@ latest_curr AS (
 
 blended_metrics AS (
     SELECT 
-        c.player_name, c.clean_name, c.position, c.team, c.curr_3wk_ppr,
+        c.player_name, c.clean_name, c.position, c.team, c.curr_3wk_ppr, c.curr_3wk_touches, c.curr_3wk_targets,
         (GREATEST(0.0, (4.0 - c.weeks_played) / 4.0) * COALESCE(p.prior_opp, c.curr_3wk_opp)) +
         ((1.0 - GREATEST(0.0, (4.0 - c.weeks_played) / 4.0)) * c.curr_3wk_opp) as blended_opp,
         ((GREATEST(0.0, (4.0 - c.weeks_played) / 4.0) * COALESCE(p.prior_opp, c.curr_3wk_opp)) +
@@ -159,9 +176,9 @@ SELECT
     ROUND(bm.blended_opp, 3) as "Opp Score", ROUND(bm.opp_surge, 3) as "Surge", ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
     CASE 
         WHEN bm.blended_opp < 0.20 AND bm.curr_3wk_ppr < 8.0 THEN '✂️ DROP CANDIDATE'
-        WHEN bm.blended_opp < 0.25 AND bm.curr_3wk_ppr >= 13.0 THEN '⚠️ FLUKE RISK (Trade Out)'
+        WHEN bm.blended_opp < 0.22 AND bm.curr_3wk_touches < 8.0 AND bm.curr_3wk_ppr >= 13.0 THEN '⚠️ FLUKE RISK (Trade Out)'
         WHEN bm.blended_opp >= 0.45 AND bm.curr_3wk_ppr >= 13.0 THEN '🔥 CORE STARTER'
-        WHEN bm.blended_opp >= 0.40 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 BUY LOW HOLD'
+        WHEN bm.blended_opp >= 0.40 AND bm.curr_3wk_targets >= 4.0 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 BUY LOW HOLD'
         WHEN bm.opp_surge >= 0.100 THEN '📈 SURGING ROLE'
         ELSE '👀 HOLD'
     END as "Verdict"
@@ -171,14 +188,13 @@ ORDER BY r.fantasy_team, "Opp Score" DESC;
 """
 df_squad_master = duckdb.query(squad_master_sql).df()
 
-# Expand Waiver Wire Pool to allow positional filtering (LIMIT removed from SQL, handled in JS)
 waiver_sql = """
 SELECT 
     player_name as "Player", clean_name, position as "Pos", team as "Team",
     ROUND(blended_opp, 3) as "Opp Score", ROUND(opp_surge, 3) as "Surge (Velocity)", ROUND(curr_3wk_ppr, 1) as "PPR Avg",
     CASE 
-        WHEN blended_opp >= 0.45 AND curr_3wk_ppr < 10.0 THEN '🚨 BUY LOW / TARGET'
-        WHEN blended_opp < 0.25 AND curr_3wk_ppr >= 13.0 THEN '⚠️ SELL HIGH / FLUKE'
+        WHEN blended_opp >= 0.45 AND curr_3wk_targets >= 4.0 AND curr_3wk_ppr < 10.0 THEN '🚨 BUY LOW / TARGET'
+        WHEN blended_opp < 0.22 AND curr_3wk_touches < 8.0 AND curr_3wk_ppr >= 13.0 THEN '⚠️ SELL HIGH / FLUKE'
         WHEN blended_opp >= 0.45 AND curr_3wk_ppr >= 13.0 THEN '🔥 HIGH-VOLUME ALPHA'
         WHEN opp_surge >= 0.100 THEN '📈 SURGING WORKLOAD'
         ELSE '👀 STASH'
@@ -196,7 +212,7 @@ SELECT
     '🚨 BUY LOW / TRADE TARGET' as "Verdict"
 FROM df_rosters r
 JOIN df_analytics bm ON r.clean_name = bm.clean_name
-WHERE bm.blended_opp >= 0.40 AND bm.curr_3wk_ppr < 11.0
+WHERE bm.blended_opp >= 0.40 AND bm.curr_3wk_targets >= 4.0 AND bm.curr_3wk_ppr < 11.0
 ORDER BY "Opp Score" DESC;
 """
 df_trade_master = duckdb.query(trade_master_sql).df()
@@ -214,23 +230,25 @@ html_content = f"""
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Fandrameda Interactive Dashboard</title>
+    <title>Fandromeda Interactive Dashboard</title>
     <style>
         body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; margin: 0; }}
         .header-container {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 25px; }}
-        .section-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; margin-top: 35px; padding-bottom: 8px; }}
+        .section-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; margin-top: 35px; padding-bottom: 8px; cursor: pointer; user-select: none; }}
         .section-header h2 {{ color: #94a3b8; font-size: 1.3rem; margin: 0; border: none; padding: 0; }}
+        .toggle-hint {{ color: #38bdf8; font-size: 0.8rem; font-weight: normal; margin-left: 10px; }}
         h1 {{ color: #38bdf8; font-size: 2.2rem; margin: 0; }}
         .timestamp-bar {{ display: flex; gap: 20px; font-size: 0.85rem; color: #94a3b8; background-color: #1e293b; padding: 8px 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #334155; }}
         .controls {{ display: flex; align-items: center; gap: 10px; }}
         select {{ background-color: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 12px; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; outline: none; }}
         select:hover {{ background-color: #334155; }}
         
-        .info-card {{ background-color: #1e293b; border-left: 4px solid #38bdf8; padding: 15px 20px; margin-top: 15px; border-radius: 0 8px 8px 0; font-size: 0.9rem; line-height: 1.5; }}
+        .info-card {{ background-color: #1e293b; border-left: 4px solid #38bdf8; padding: 15px 20px; margin-top: 15px; border-radius: 0 8px 8px 0; font-size: 0.9rem; line-height: 1.5; display: none; }}
+        .info-card.always-visible {{ display: block; }}
         .info-card ul {{ margin: 5px 0 0 0; padding-left: 20px; }}
         .info-card li {{ margin-bottom: 4px; }}
         
-        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #1e293b; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #1e293b; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }}
         th {{ background-color: #334155; color: #38bdf8; text-align: left; padding: 12px 16px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; user-select: none; }}
         th:hover {{ background-color: #475569; }}
         th::after {{ content: ' ↕'; font-size: 0.75rem; color: #64748b; }}
@@ -239,6 +257,16 @@ html_content = f"""
         
         .player-clickable {{ color: #38bdf8; font-weight: bold; cursor: pointer; text-decoration: underline; }}
         .player-clickable:hover {{ color: #7dd3fc; }}
+
+        .verdict-badge {{ position: relative; display: inline-block; cursor: help; border-bottom: 1px dashed #64748b; }}
+        .verdict-badge .tooltiptext {{
+            visibility: hidden; width: 240px; background-color: #0f172a; color: #f8fafc;
+            text-align: left; border: 1px solid #38bdf8; border-radius: 6px; padding: 8px 12px;
+            position: absolute; z-index: 100; left: 50%; margin-left: -120px;
+            opacity: 0; transition: opacity 0.2s; font-size: 0.8rem; font-weight: normal; line-height: 1.3;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }}
+        .verdict-badge:hover .tooltiptext {{ visibility: visible; opacity: 1; }}
 
         .modal-overlay {{
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -260,7 +288,7 @@ html_content = f"""
 
     <div class="header-container">
         <div>
-            <h1>🌌 Fandrameda Engine</h1>
+            <h1>🌌 Fandromeda Engine</h1>
             <div style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Cosmic Fantasy Analytics & Waiver Intelligence Hub | <i>Click headers to sort | Click player names for game logs</i></div>
         </div>
         <div class="controls">
@@ -276,7 +304,7 @@ html_content = f"""
         <span>☁️ <strong>NFLVerse Data Fetched:</strong> {nfl_last_updated}</span>
     </div>
 
-    <div class="info-card">
+    <div class="info-card always-visible">
         <strong>📚 Position-Specific Opportunity Metrics:</strong>
         <ul>
             <li><strong>WR / TE Opportunity (WOPR):</strong> 1.5 × Target Share + 0.7 × Air Yards Share.</li>
@@ -286,16 +314,16 @@ html_content = f"""
     </div>
 
     <!-- SECTION 1 -->
-    <div class="section-header">
-        <h2>🏈 Squad Evaluation (<span id="activeTeamHeader">{default_team}</span>)</h2>
+    <div class="section-header" onclick="toggleCard('squadCard', 'squadHint')">
+        <h2>🏈 Squad Evaluation (<span id="activeTeamHeader">{default_team}</span>) <span class="toggle-hint" id="squadHint">[+ Click to expand definitions]</span></h2>
     </div>
-    <div class="info-card">
+    <div class="info-card" id="squadCard">
         <strong>Squad Verdict Guidance & Master Definitions:</strong>
         <ul>
             <li><strong>🔥 CORE STARTER:</strong> Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0). Unquestioned weekly start.</li>
-            <li><strong>🚨 BUY LOW HOLD:</strong> High opportunity (Opp ≥ 0.40) but temporary low fantasy output (PPR &lt; 11.0). Do not drop; breakout incoming.</li>
-            <li><strong>📈 SURGING ROLE:</strong> Workload velocity growing rapidly (Surge ≥ 0.100). A bench player is seeing more playing time and oportunities in recent weeks.</li>
-            <li><strong>⚠️ FLUKE RISK (Trade Out):</strong> Scoring fantasy points on weak underlying volume (Opp &lt; 0.25, PPR ≥ 13.0). Sell high before efficiency drops.</li>
+            <li><strong>🚨 BUY LOW HOLD:</strong> High opportunity (Opp ≥ 0.40) and minimum target volume but low output (PPR &lt; 11.0). Do not drop.</li>
+            <li><strong>📈 SURGING ROLE:</strong> Workload velocity growing rapidly (Surge ≥ 0.100). Bench player earning a larger share of offensive plays.</li>
+            <li><strong>⚠️ FLUKE RISK (Trade Out):</strong> Scoring fantasy points on weak volume (&lt;8 touches/gm & Opp &lt; 0.22). Sell high before regression.</li>
             <li><strong>✂️ DROP CANDIDATE:</strong> Weak volume (Opp &lt; 0.20) and poor fantasy output (PPR &lt; 8.0). Safely drop to free up bench space.</li>
             <li><strong>👀 HOLD:</strong> Stable positional role without immediate breakout or drop signals.</li>
         </ul>
@@ -303,9 +331,9 @@ html_content = f"""
     <div id="squadTableContainer"></div>
 
     <!-- SECTION 2 -->
-    <div class="section-header">
-        <h2>🔥 Unclaimed Waiver Wire (Ranked by Opportunity Surge)</h2>
-        <div class="controls">
+    <div class="section-header" onclick="toggleCard('waiverCard', 'waiverHint')">
+        <h2>🔥 Unclaimed Waiver Wire (Ranked by Opportunity Surge) <span class="toggle-hint" id="waiverHint">[+ Click to expand definitions]</span></h2>
+        <div class="controls" onclick="event.stopPropagation();">
             <label for="posSelect" style="color: #94a3b8; font-weight: bold; font-size: 0.9rem;">Filter Position:</label>
             <select id="posSelect" onchange="filterWaiverData()">
                 <option value="ALL" selected>All Positions</option>
@@ -316,26 +344,26 @@ html_content = f"""
             </select>
         </div>
     </div>
-    <div class="info-card">
+    <div class="info-card" id="waiverCard">
         <strong>Waiver Verdict Guidance & Master Definitions:</strong>
         <ul>
-            <li><strong>🚨 BUY LOW / TARGET:</strong> High opportunity (Opp ≥ 0.45) with weak current fantasy production (PPR &lt; 10.0). Prime waiver target before points explode.</li>
+            <li><strong>🚨 BUY LOW / TARGET:</strong> High opportunity (Opp ≥ 0.45) & target floor with weak fantasy points (PPR &lt; 10.0). Priority target.</li>
             <li><strong>🔥 HIGH-VOLUME ALPHA:</strong> Unowned player producing elite volume (Opp ≥ 0.45) and strong PPR points (PPR ≥ 13.0). Priority pickup.</li>
             <li><strong>📈 SURGING WORKLOAD:</strong> Workload velocity jumping rapidly over the past 3 weeks (Surge ≥ 0.100).</li>
-            <li><strong>⚠️ SELL HIGH / FLUKE:</strong> Scoring fantasy points without volume backing (Opp &lt; 0.25, PPR ≥ 13.0). High risk for waiver priority spend.</li>
+            <li><strong>⚠️ SELL HIGH / FLUKE:</strong> Points scored without underlying volume (&lt;8 touches/gm). High risk for waiver spending.</li>
             <li><strong>👀 STASH:</strong> Low volume/points currently, but worth monitoring for deep bench storage.</li>
         </ul>
     </div>
     <div id="waiverTableContainer"></div>
 
     <!-- SECTION 3 -->
-    <div class="section-header">
-        <h2>🎯 Rival Roster Trade Targets (High Opportunity / Low Output)</h2>
+    <div class="section-header" onclick="toggleCard('tradeCard', 'tradeHint')">
+        <h2>🎯 Rival Roster Trade Targets (High Opportunity / Low Output) <span class="toggle-hint" id="tradeHint">[+ Click to expand definitions]</span></h2>
     </div>
-    <div class="info-card">
+    <div class="info-card" id="tradeCard">
         <strong>Trade Verdict Guidance & Master Definitions:</strong>
         <ul>
-            <li><strong>🚨 BUY LOW / TRADE TARGET:</strong> Player rostered by a rival manager who commands significant workload (Opp ≥ 0.40) but is underperforming on points (PPR &lt; 11.0). Target in trade offers while their owner is frustrated.</li>
+            <li><strong>🚨 BUY LOW / TRADE TARGET:</strong> Player rostered by a rival manager with significant workload (Opp ≥ 0.40) and target volume underperforming on points (PPR &lt; 11.0). Target in trades while the owner is frustrated.</li>
         </ul>
     </div>
     <div id="tradeTableContainer"></div>
@@ -354,6 +382,33 @@ html_content = f"""
         const masterWaiverData = {df_waiver.to_json(orient='records')};
         const masterTradeData = {df_trade_master.to_json(orient='records')};
         const granularData = {df_granular.to_json(orient='records')};
+
+        const verdictTooltips = {{
+            '🔥 CORE STARTER': 'Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0). Unquestioned weekly start.',
+            '🚨 BUY LOW HOLD': 'High opportunity (Opp ≥ 0.40) & target floor but low output (PPR < 11.0). Do not drop; breakout incoming.',
+            '📈 SURGING ROLE': 'Workload velocity growing rapidly (Surge ≥ 0.100). Bench player earning a larger share of offensive plays.',
+            '⚠️ FLUKE RISK (Trade Out)': 'Scoring fantasy points on weak volume (<8 touches/gm & Opp < 0.22). Sell high before efficiency drops.',
+            '✂️ DROP CANDIDATE': 'Weak volume (Opp < 0.20) and poor fantasy output (PPR < 8.0). Safely drop to free up bench space.',
+            '👀 HOLD': 'Stable positional role without immediate breakout or drop signals.',
+            '🚨 BUY LOW / TARGET': 'High opportunity (Opp ≥ 0.45) & target floor with weak fantasy points (PPR < 10.0). Prime waiver target.',
+            '🔥 HIGH-VOLUME ALPHA': 'Unowned player producing elite volume (Opp ≥ 0.45) and strong PPR points (PPR ≥ 13.0). Priority pickup.',
+            '📈 SURGING WORKLOAD': 'Workload velocity jumping rapidly over the past 3 weeks (Surge ≥ 0.100).',
+            '⚠️ SELL HIGH / FLUKE': 'Points scored without underlying volume (<8 touches/gm). High risk for waiver spending.',
+            '👀 STASH': 'Low volume/points currently, but worth monitoring for deep bench storage.',
+            '🚨 BUY LOW / TRADE TARGET': 'Target rostered players with significant workload (Opp ≥ 0.40) who are underperforming on points (PPR < 11.0).'
+        }};
+
+        function toggleCard(cardId, hintId) {{
+            const card = document.getElementById(cardId);
+            const hint = document.getElementById(hintId);
+            if (card.style.display === 'block') {{
+                card.style.display = 'none';
+                hint.innerText = '[+ Click to expand definitions]';
+            }} else {{
+                card.style.display = 'block';
+                hint.innerText = '[- Click to collapse definitions]';
+            }}
+        }}
 
         function filterTeamData() {{
             const selectedTeam = document.getElementById('teamSelect').value;
@@ -376,7 +431,6 @@ html_content = f"""
                 waiverFiltered = masterWaiverData.filter(row => row.Pos === selectedPos);
             }}
             
-            // Limit view to top 15 results for selected position
             renderTable('waiverTableContainer', waiverFiltered.slice(0, 15), ['Player', 'Pos', 'Team', 'Opp Score', 'Surge (Velocity)', 'PPR Avg', 'Verdict']);
             attachSortListeners();
         }}
@@ -390,12 +444,16 @@ html_content = f"""
             columns.forEach(col => html += `<th>${{col}}</th>`);
             html += '</tr></thead><tbody>';
             
-            data.forEach(row => {{
+            data.forEach((row, rowIndex) => {{
                 html += '<tr>';
                 columns.forEach(col => {{
                     let val = row[col] !== null ? row[col] : 'N/A';
                     if (col === 'Player') {{
                         html += `<td><span class="player-clickable" onclick="openPlayerModal('${{row.clean_name}}', '${{row.Player}}')">${{val}}</span></td>`;
+                    }} else if (col === 'Verdict') {{
+                        const desc = verdictTooltips[val] || 'Calculated verdict rule based on opportunity score and scoring trends.';
+                        const popDirection = rowIndex === 0 ? 'top: 125%;' : 'bottom: 125%;';
+                        html += `<td><div class="verdict-badge">${{val}}<span class="tooltiptext" style="${{popDirection}}">${{desc}}</span></div></td>`;
                     }} else {{
                         html += `<td>${{val}}</td>`;
                     }}
@@ -470,6 +528,30 @@ html_content = f"""
             }});
         }}
 
+        // --- Cosmic Konami Code Easter Egg ---
+        const secretCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+        let codeIndex = 0;
+
+        document.addEventListener('keydown', (e) => {{
+            if (e.key === secretCode[codeIndex]) {{
+                codeIndex++;
+                if (codeIndex === secretCode.length) {{
+                    triggerEasterEgg();
+                    codeIndex = 0;
+                }}
+            }} else {{
+                codeIndex = 0;
+            }}
+        }});
+
+        function triggerEasterEgg() {{
+            const h1 = document.querySelector('h1');
+            h1.innerText = "⚡ FANDROMEDA OVERDRIVE UNLOCKED ⚡";
+            h1.style.color = "#a855f7";
+            h1.style.textShadow = "0 0 15px #a855f7";
+            alert("🌌 Cosmic Cheat Code Activated: May your waivers be swift and your trade bait irresistible.");
+        }}
+
         // Initial renders
         filterTeamData();
         filterWaiverData();
@@ -482,5 +564,5 @@ output_file = "index.html"
 with open(output_file, "w", encoding="utf-8") as f:
     f.write(html_content)
 
-print(f"✅ Fandrameda Dashboard generated successfully: '{output_file}'")
+print(f"✅ Fandromeda Dashboard generated successfully: '{output_file}'")
 webbrowser.open("file://" + os.path.realpath(output_file))
