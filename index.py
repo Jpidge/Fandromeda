@@ -128,7 +128,7 @@ for col in cols_to_fill:
     else:
         df_nfl[col] = 0.0
 
-# 4. Air Yards Calculation (With Safe Null Handling for Early Season Data)
+# 4. Air Yards Calculation
 if "air_yards" in df_nfl.columns:
     df_nfl["air_yards"] = df_nfl["air_yards"].fillna(0.0)
 else:
@@ -191,7 +191,7 @@ default_team = (
     "Vader's Raiders" if "Vader's Raiders" in all_teams else all_teams[0]
 )
 
-# 5. Calculate Defensive SOS Rankings (Fantasy Points Allowed per Position)
+# 5. Calculate Defensive SOS Rankings
 def_points_allowed_query = """
 SELECT 
     opponent_team as def_team, position, 
@@ -203,7 +203,7 @@ GROUP BY opponent_team, position
 """
 df_def_sos = duckdb.query(def_points_allowed_query).df()
 
-# 6. Dynamic Current NFL Week Detection (Filtered to 2026 Regular Season Weeks 1-18)
+# 6. Dynamic Current NFL Week Detection
 df_curr_season = df_nfl[df_nfl["season"] == 2026]
 
 if not df_curr_season.empty:
@@ -222,7 +222,7 @@ WHERE season = 2026 AND week IN ({', '.join(map(str, next_weeks))})
 """
 df_upcoming_games = duckdb.query(sched_query).df()
 
-# Map Next 3 Matchups & Weather per NFL Team (Weather flags restricted to Next Week ONLY)
+# Map Next 3 Matchups & Weather per NFL Team
 team_sos_list = []
 nfl_teams = df_nfl["team"].dropna().unique()
 
@@ -242,7 +242,6 @@ for team in nfl_teams:
             opp = g["away_team"] if is_home else g["home_team"]
             prefix = "vs " if is_home else "@ "
 
-            # Weather flags evaluate ONLY for immediate next week (w_idx == 0)
             weather_flags = ""
             if w_idx == 0:
                 is_outdoor = str(g["roof"]).lower() in ["outdoors", "open"]
@@ -497,7 +496,7 @@ html_content = f"""
     <div class="header-container">
         <div>
             <h1>🌌 Fandromeda Engine</h1>
-            <div style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Fantasy Football Analytics & Waiver Intelligence Hub | <i>Click headers to sort | Hover sparklines for PPR score history | Click player names for game logs</i></div>
+            <div style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Fantasy Football Analytics & Waiver Intelligence Hub</div>
         </div>
         <div class="controls">
             <label for="teamSelect" style="color: #94a3b8; font-weight: bold; font-size: 0.95rem;">Active Team Target:</label>
@@ -591,6 +590,7 @@ html_content = f"""
         <!-- SECTION 3: TRADE TARGETS -->
         <div class="section-header" onclick="toggleCard('tradeCard', 'tradeHint')">
             <h2>🎯 Rival Roster Trade Targets (High Opportunity / Low Output) <span class="toggle-hint" id="tradeHint">[+ Click to expand definitions]</span></h2>
+            <button class="toggle-btn" onclick="openTradeAnalyzerModal()" style="margin-left: 15px; background-color: #38bdf8; color: #0f172a;">⚖️ Open Trade Analyzer</button>
         </div>
         <div class="info-card" id="tradeCard">
             <strong>Trade Verdict Guidance & Master Definitions:</strong>
@@ -622,6 +622,13 @@ html_content = f"""
                         <div>• <code>WR / TE Opportunity (WOPR):</code> 1.5 × Target Share + 0.7 × Air Yards Share</div>
                         <div>• <code>RB Opportunity Share:</code> Rushing Share + 1.5 × Target Share</div>
                         <div>• <code>QB Opportunity Share:</code> (Passing Attempts + Rushing Carries) / 50.0</div>
+                    </div>
+                </li>
+
+                <li class="feature-item">
+                    <span class="feature-title">🔄 Trade Analyzer Tool</span>
+                    <div class="feature-desc">
+                        A dynamic mini-modal calculator that evaluates 1-for-1, 2-for-1, or 2-for-2 trade proposals between rostered assets across rival managers. Filter assets by rival team/manager to compute net changes in <code>Opportunity Score</code> and <code>PPR Average</code>.
                     </div>
                 </li>
 
@@ -663,19 +670,53 @@ html_content = f"""
                 <li class="feature-item">
                     <span class="feature-title">🌦️ Defensive Strength of Schedule & Weather Cheat Sheet</span>
                     <div class="feature-desc">
-                        Evaluates upcoming 3-week opponent matchups color-coded by defensive points allowed per position, along with high-wind (💨), extreme cold (🥶), and severe heat (🔥) outdoor flags.
+                        Evaluates upcoming 3-week opponent matchups color-coded by defensive points allowed per position, along with high-wind (💨), extreme cold (🥶), and severe heat (🔥) outdoor flags restricted to next week's game.
                     </div>
                 </li>
             </ul>
         </div>
     </div>
 
+    <!-- PLAYER GAME LOG MODAL -->
     <div id="playerModal" class="modal-overlay">
         <div class="modal-card">
             <span class="close-btn" onclick="closeModal()">&times;</span>
             <h2 id="modalPlayerName" style="color:#38bdf8; margin-top:0;">Player Details</h2>
             <p id="modalSubhead" style="color:#94a3b8; font-size:0.9rem;"></p>
             <div id="modalTableContainer"></div>
+        </div>
+    </div>
+
+    <!-- TRADE ANALYZER MODAL WITH RECEIVING TEAM SELECTOR -->
+    <div id="tradeAnalyzerModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 700px;">
+            <span class="close-btn" onclick="closeTradeAnalyzerModal()">&times;</span>
+            <h2 style="color:#38bdf8; margin-top:0;">⚖️ Trade Impact Analyzer</h2>
+            <p style="color:#94a3b8; font-size:0.85rem;">Select assets to calculate net Opportunity Score & PPR impact for multi-player trade proposals.</p>
+            
+            <div style="display: flex; gap: 20px; margin-top: 20px;">
+                <!-- Side A: Giving Away -->
+                <div style="flex: 1; background: #0f172a; padding: 15px; border-radius: 6px; border: 1px solid #334155;">
+                    <h3 style="color: #f87171; margin-top:0;">Giving Away (<span id="giveTeamLabel">My Roster</span>)</h3>
+                    <select id="givePlayer1" onchange="calculateTradeImpact()" style="width: 100%; margin-bottom: 10px;"><option value="">Select Player 1...</option></select>
+                    <select id="givePlayer2" onchange="calculateTradeImpact()" style="width: 100%;"><option value="">Select Player 2 (Optional)...</option></select>
+                </div>
+                
+                <!-- Side B: Receiving (Filtered by Manager Dropdown) -->
+                <div style="flex: 1; background: #0f172a; padding: 15px; border-radius: 6px; border: 1px solid #334155;">
+                    <h3 style="color: #4ade80; margin-top:0;">Receiving</h3>
+                    <select id="receiveTeamSelect" onchange="populateReceivePlayers()" style="width: 100%; margin-bottom: 10px;">
+                        <option value="ALL">Select Manager / Team...</option>
+                    </select>
+                    <select id="getPlayer1" onchange="calculateTradeImpact()" style="width: 100%; margin-bottom: 10px;"><option value="">Select Player 1...</option></select>
+                    <select id="getPlayer2" onchange="calculateTradeImpact()" style="width: 100%;"><option value="">Select Player 2 (Optional)...</option></select>
+                </div>
+            </div>
+
+            <!-- Net Output Display -->
+            <div id="tradeSummaryOutput" style="margin-top: 20px; padding: 15px; background: #0f172a; border-radius: 6px; text-align: center; border-left: 4px solid #38bdf8;">
+                <span style="color: #64748b;">Select players above to view net proposal impact.</span>
+            </div>
         </div>
     </div>
 
@@ -764,6 +805,105 @@ html_content = f"""
             const btn = document.getElementById('toggleTradeBtn');
             btn.innerText = isTradeExpanded ? "👆 Show Top 5 Only" : "👇 Show All Trade Targets";
             filterTeamData();
+        }}
+
+        function populateTradeDropdowns() {{
+            const activeTeam = document.getElementById('teamSelect').value;
+            document.getElementById('giveTeamLabel').innerText = activeTeam;
+
+            // 1. Giving Away: Restricted to active manager's roster
+            const givePlayers = masterSquadData.filter(p => p.fantasy_team === activeTeam);
+            let giveOpts1 = '<option value="">Select Player 1...</option>';
+            let giveOpts2 = '<option value="">Select Player 2 (Optional)...</option>';
+
+            givePlayers.forEach(p => {{
+                const opt = `<option value="${{p.clean_name}}">${{p.Player}} (${{p.Pos}} - ${{p.Team}})</option>`;
+                giveOpts1 += opt;
+                giveOpts2 += opt;
+            }});
+
+            document.getElementById('givePlayer1').innerHTML = giveOpts1;
+            document.getElementById('givePlayer2').innerHTML = giveOpts2;
+
+            // 2. Populate Receiving Manager Dropdown
+            const rivalTeams = Array.from(new Set(masterSquadData.map(p => p.fantasy_team)))
+                                   .filter(t => t !== activeTeam)
+                                   .sort();
+
+            let teamOpts = '<option value="ALL">All Rival Managers</option>';
+            rivalTeams.forEach(t => {{
+                teamOpts += `<option value="${{t}}">${{t}}</option>`;
+            }});
+            document.getElementById('receiveTeamSelect').innerHTML = teamOpts;
+
+            populateReceivePlayers();
+        }}
+
+        function populateReceivePlayers() {{
+            const activeTeam = document.getElementById('teamSelect').value;
+            const selectedRival = document.getElementById('receiveTeamSelect').value;
+
+            let receivePlayers = masterSquadData.filter(p => p.fantasy_team !== activeTeam);
+            if (selectedRival !== 'ALL') {{
+                receivePlayers = receivePlayers.filter(p => p.fantasy_team === selectedRival);
+            }}
+
+            let getOpts1 = '<option value="">Select Player 1...</option>';
+            let getOpts2 = '<option value="">Select Player 2 (Optional)...</option>';
+
+            receivePlayers.forEach(p => {{
+                const teamTag = selectedRival === 'ALL' ? ` [${{p.fantasy_team}}]` : '';
+                const opt = `<option value="${{p.clean_name}}">${{p.Player}} (${{p.Pos}} - ${{p.Team}})${{teamTag}}</option>`;
+                getOpts1 += opt;
+                getOpts2 += opt;
+            }});
+
+            document.getElementById('getPlayer1').innerHTML = getOpts1;
+            document.getElementById('getPlayer2').innerHTML = getOpts2;
+            calculateTradeImpact();
+        }}
+
+        function openTradeAnalyzerModal() {{
+            populateTradeDropdowns();
+            document.getElementById('tradeAnalyzerModal').style.display = 'flex';
+        }}
+
+        function closeTradeAnalyzerModal() {{
+            document.getElementById('tradeAnalyzerModal').style.display = 'none';
+        }}
+
+        function calculateTradeImpact() {{
+            const allPlayers = masterSquadData.concat(masterWaiverData);
+            
+            const getStats = (id) => {{
+                const val = document.getElementById(id).value;
+                return allPlayers.find(p => p.clean_name === val) || {{ 'Opp Score': 0, 'PPR Avg': 0 }};
+            }};
+
+            const give1 = getStats('givePlayer1');
+            const give2 = getStats('givePlayer2');
+            const get1 = getStats('getPlayer1');
+            const get2 = getStats('getPlayer2');
+
+            const totalGiveOpp = (parseFloat(give1['Opp Score']) || 0) + (parseFloat(give2['Opp Score']) || 0);
+            const totalGetOpp = (parseFloat(get1['Opp Score']) || 0) + (parseFloat(get2['Opp Score']) || 0);
+            const netOpp = (totalGetOpp - totalGiveOpp).toFixed(3);
+
+            const totalGivePPR = (parseFloat(give1['PPR Avg']) || 0) + (parseFloat(give2['PPR Avg']) || 0);
+            const totalGetPPR = (parseFloat(get1['PPR Avg']) || 0) + (parseFloat(get2['PPR Avg']) || 0);
+            const netPPR = (totalGetPPR - totalGivePPR).toFixed(1);
+
+            const oppColor = netOpp >= 0 ? '#4ade80' : '#f87171';
+            const pprColor = netPPR >= 0 ? '#4ade80' : '#f87171';
+
+            document.getElementById('tradeSummaryOutput').innerHTML = `
+                <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 5px;">
+                    Net Opportunity Score: <span style="color: ${{oppColor}};">${{netOpp > 0 ? '+' : ''}}${{netOpp}}</span>
+                </div>
+                <div style="font-size: 1.1rem; font-weight: bold;">
+                    Net PPR Output Avg: <span style="color: ${{pprColor}};">${{netPPR > 0 ? '+' : ''}}${{netPPR}} pts/gm</span>
+                </div>
+            `;
         }}
 
         function getMatchupClass(oppTeam, position) {{
