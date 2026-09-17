@@ -119,8 +119,12 @@ cols_to_fill = [
     "rushing_share",
     "fantasy_points_ppr",
     "air_yards",
+    "receiving_air_yards",
     "receiving_yards",
     "receiving_yards_after_catch",
+    "rushing_tds",
+    "receiving_tds",
+    "passing_tds",
 ]
 for col in cols_to_fill:
     if col in df_nfl.columns:
@@ -128,11 +132,17 @@ for col in cols_to_fill:
     else:
         df_nfl[col] = 0.0
 
-# 4. Air Yards Calculation
-if "air_yards" in df_nfl.columns:
-    df_nfl["air_yards"] = df_nfl["air_yards"].fillna(0.0)
+df_nfl["total_tds"] = df_nfl["rushing_tds"] + df_nfl["receiving_tds"]
+
+# 4. Target Air Yards & Unrealized Air Yards Calculation
+if "receiving_air_yards" in df_nfl.columns:
+    df_nfl["target_air_yards"] = (
+        df_nfl["receiving_air_yards"]
+        .fillna(df_nfl["air_yards"])
+        .fillna(0.0)
+    )
 else:
-    df_nfl["air_yards"] = 0.0
+    df_nfl["target_air_yards"] = df_nfl["air_yards"].fillna(0.0)
 
 if "receiving_yards" in df_nfl.columns:
     df_nfl["receiving_yards"] = df_nfl["receiving_yards"].fillna(0.0)
@@ -153,8 +163,13 @@ df_nfl["completed_air_yards"] = (
     df_nfl["receiving_yards"] - df_nfl[yac_col]
 ).clip(lower=0.0)
 df_nfl["unrealized_air_yards"] = (
-    df_nfl["air_yards"] - df_nfl["completed_air_yards"]
+    df_nfl["target_air_yards"] - df_nfl["completed_air_yards"]
 ).clip(lower=0.0)
+
+# Red Zone Opportunity Approximation Index
+df_nfl["rz_opp_score"] = (
+    df_nfl["targets"] * 0.35 + df_nfl["carries"] * 0.25 + df_nfl["total_tds"] * 1.5
+)
 
 
 # Position Opportunity Score
@@ -275,12 +290,14 @@ current_season AS (
     SELECT 
         clean_name, player_display_name as player_name, position, team, week, 
         fantasy_points_ppr as ppr_pts, targets, carries, attempts as pass_attempts, 
-        target_share, air_yards_share, rushing_share, pos_opp_score, unrealized_air_yards,
+        target_share, air_yards_share, rushing_share, pos_opp_score, unrealized_air_yards, rz_opp_score, total_tds,
         AVG(pos_opp_score) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_opp,
         AVG(fantasy_points_ppr) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_ppr,
         AVG(carries + targets) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_touches,
         AVG(targets) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_targets,
         AVG(unrealized_air_yards) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_unrealized_ay,
+        AVG(rz_opp_score) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_rz_opp,
+        SUM(total_tds) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_tds,
         LAG(pos_opp_score, 2, pos_opp_score) OVER (PARTITION BY clean_name ORDER BY week) as prev_opp_base,
         COUNT(week) OVER (PARTITION BY clean_name) as weeks_played
     FROM df_nfl WHERE season = 2026
@@ -292,6 +309,8 @@ blended_metrics AS (
     SELECT 
         c.player_name, c.clean_name, c.position, c.team, c.curr_3wk_ppr, c.curr_3wk_touches, c.curr_3wk_targets,
         ROUND(c.curr_3wk_unrealized_ay, 1) as curr_3wk_unrealized_ay,
+        ROUND(c.curr_3wk_rz_opp, 1) as curr_3wk_rz_opp,
+        c.curr_3wk_tds,
         COALESCE(d.depth_team, 1) as depth_rank,
         COALESCE(i.report_status, 'Active') as injury_status,
         (GREATEST(0.0, (4.0 - c.weeks_played) / 4.0) * COALESCE(p.prior_opp, c.curr_3wk_opp)) +
@@ -308,19 +327,20 @@ SELECT * FROM blended_metrics;
 """
 df_analytics = duckdb.query(base_query).df()
 
-# 8. Granular Query for Modal Game Logs
+# 8. Granular Query for Modal Game Logs (Sorted Date Descending)
 granular_query = """
 WITH active_games AS (
     SELECT 
         clean_name, season, week, position, targets, carries, attempts as pass_attempts,
         ROUND(target_share, 3) as tgt_share, ROUND(air_yards_share, 3) as ay_share,
         ROUND(rushing_share, 3) as rush_share, ROUND(pos_opp_score, 3) as opp_score,
-        ROUND(unrealized_air_yards, 1) as unrealized_ay, ROUND(fantasy_points_ppr, 1) as ppr_pts,
+        ROUND(unrealized_air_yards, 1) as unrealized_ay, ROUND(rz_opp_score, 1) as rz_opp, total_tds,
+        ROUND(fantasy_points_ppr, 1) as ppr_pts,
         ROW_NUMBER() OVER (PARTITION BY clean_name ORDER BY season DESC, week DESC) as game_rn
     FROM df_nfl
     WHERE season IN (2025, 2026) AND (carries > 0 OR targets > 0 OR attempts > 0)
 )
-SELECT * FROM active_games ORDER BY clean_name, season ASC, week ASC;
+SELECT * FROM active_games ORDER BY clean_name, season DESC, week DESC;
 """
 df_granular = duckdb.query(granular_query).df()
 
@@ -328,18 +348,24 @@ df_granular = duckdb.query(granular_query).df()
 squad_master_sql = """
 SELECT 
     r.fantasy_team, r.roster_pos as "Slot", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team",
-    ROUND(bm.blended_opp, 3) as "Opp Score", ROUND(bm.opp_surge, 3) as "Surge", bm.curr_3wk_unrealized_ay as "Unrealized AY", ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
+    ROUND(bm.blended_opp, 3) as "Opp Score", ROUND(bm.opp_surge, 3) as "Surge", 
+    ROUND(bm.curr_3wk_unrealized_ay, 1) as "air_yds_val", 
+    ROUND(bm.curr_3wk_rz_opp, 1) as "rz_opp_val", 
+    ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
     'SPARKLINE' as "Trend (PPR)",
     CASE 
-        WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME (IR Replacement)'
-        WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW'
-        WHEN bm.blended_opp < 0.20 AND bm.curr_3wk_ppr < 8.0 THEN '✂️ DROP CANDIDATE'
-        WHEN bm.blended_opp < 0.22 AND bm.curr_3wk_touches < 8.0 AND bm.curr_3wk_ppr >= 13.0 THEN '⚠️ FLUKE RISK (Trade Out)'
         WHEN bm.blended_opp >= 0.45 AND bm.curr_3wk_ppr >= 13.0 THEN '🔥 CORE STARTER'
-        WHEN bm.blended_opp >= 0.40 AND bm.curr_3wk_targets >= 4.0 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 BUY LOW HOLD'
         WHEN bm.opp_surge >= 0.100 THEN '📈 SURGING ROLE'
+        WHEN bm.blended_opp >= 0.40 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 BUY LOW HOLD'
+        WHEN bm.blended_opp < 0.20 AND bm.curr_3wk_ppr < 8.0 THEN '✂️ DROP CANDIDATE'
         ELSE '👀 HOLD'
-    END as "Verdict"
+    END as "Role Verdict",
+    COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
+        CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
+        CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW' END,
+        CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END,
+        CASE WHEN bm.blended_opp < 0.22 AND bm.curr_3wk_touches < 8.0 AND bm.curr_3wk_ppr >= 13.0 THEN '⚠️ FLUKE RISK' END
+    ], x -> x IS NOT NULL), ' | '), ''), '—') as "Tactical Flags"
 FROM df_rosters r
 JOIN df_analytics bm ON r.clean_name = bm.clean_name
 ORDER BY r.fantasy_team, "Opp Score" DESC;
@@ -349,17 +375,23 @@ df_squad_master = duckdb.query(squad_master_sql).df()
 waiver_sql = """
 SELECT 
     player_name as "Player", clean_name, position as "Pos", team as "Team",
-    ROUND(blended_opp, 3) as "Opp Score", ROUND(opp_surge, 3) as "Surge (Velocity)", curr_3wk_unrealized_ay as "Unrealized AY", ROUND(curr_3wk_ppr, 1) as "PPR Avg",
+    ROUND(blended_opp, 3) as "Opp Score", ROUND(opp_surge, 3) as "Surge (Velocity)", 
+    ROUND(curr_3wk_unrealized_ay, 1) as "air_yds_val", 
+    ROUND(curr_3wk_rz_opp, 1) as "rz_opp_val", 
+    ROUND(curr_3wk_ppr, 1) as "PPR Avg",
     'SPARKLINE' as "Trend (PPR)",
     CASE 
-        WHEN depth_rank > 1 AND blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME (IR Replacement)'
-        WHEN position IN ('WR', 'TE') AND curr_3wk_unrealized_ay >= 65.0 AND curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW'
-        WHEN blended_opp >= 0.45 AND curr_3wk_targets >= 4.0 AND curr_3wk_ppr < 10.0 THEN '🚨 BUY LOW / TARGET'
-        WHEN blended_opp < 0.22 AND curr_3wk_touches < 8.0 AND curr_3wk_ppr >= 13.0 THEN '⚠️ SELL HIGH / FLUKE'
         WHEN blended_opp >= 0.45 AND curr_3wk_ppr >= 13.0 THEN '🔥 HIGH-VOLUME ALPHA'
+        WHEN blended_opp >= 0.45 AND curr_3wk_targets >= 4.0 AND curr_3wk_ppr < 10.0 THEN '🚨 BUY LOW / TARGET'
         WHEN opp_surge >= 0.100 THEN '📈 SURGING WORKLOAD'
         ELSE '👀 STASH'
-    END as "Verdict"
+    END as "Role Verdict",
+    COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
+        CASE WHEN depth_rank > 1 AND blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
+        CASE WHEN position IN ('WR', 'TE') AND curr_3wk_unrealized_ay >= 65.0 AND curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW' END,
+        CASE WHEN curr_3wk_rz_opp >= 2.5 AND curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END,
+        CASE WHEN blended_opp < 0.22 AND curr_3wk_touches < 8.0 AND curr_3wk_ppr >= 13.0 THEN '⚠️ SELL HIGH / FLUKE' END
+    ], x -> x IS NOT NULL), ' | '), ''), '—') as "Tactical Flags"
 FROM df_analytics
 WHERE clean_name NOT IN (SELECT clean_name FROM df_rosters)
 ORDER BY "Surge (Velocity)" DESC;
@@ -369,17 +401,22 @@ df_waiver = duckdb.query(waiver_sql).df()
 trade_master_sql = """
 SELECT 
     r.fantasy_team as "Owner", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team",
-    ROUND(bm.blended_opp, 3) as "Opp Score", bm.curr_3wk_unrealized_ay as "Unrealized AY", ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
+    ROUND(bm.blended_opp, 3) as "Opp Score", 
+    ROUND(bm.curr_3wk_unrealized_ay, 1) as "air_yds_val", 
+    ROUND(bm.curr_3wk_rz_opp, 1) as "rz_opp_val", 
+    ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
     'SPARKLINE' as "Trend (PPR)",
-    CASE 
-        WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME (IR Replacement)'
-        WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 THEN '🚨 AIR YARD BUY-LOW'
-        ELSE '🚨 BUY LOW / TRADE TARGET'
-    END as "Verdict"
+    '🚨 BUY LOW / TRADE TARGET' as "Role Verdict",
+    COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
+        CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
+        CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 THEN '🚨 AIR YARD BUY-LOW' END,
+        CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END
+    ], x -> x IS NOT NULL), ' | '), ''), '—') as "Tactical Flags"
 FROM df_rosters r
 JOIN df_analytics bm ON r.clean_name = bm.clean_name
 WHERE (bm.blended_opp >= 0.40 AND bm.curr_3wk_targets >= 4.0 AND bm.curr_3wk_ppr < 11.0)
    OR (bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 AND bm.curr_3wk_ppr < 11.0)
+   OR (bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1)
 ORDER BY "Opp Score" DESC;
 """
 df_trade_master = duckdb.query(trade_master_sql).df()
@@ -434,7 +471,6 @@ html_content = f"""
         .info-card ul {{ margin: 5px 0 0 0; padding-left: 20px; }}
         .info-card li {{ margin-bottom: 4px; }}
         
-        /* ENHANCED ENGINE SPECS FORMATTING */
         .info-card.spacious-card {{ padding: 20px 25px; font-size: 0.95rem; }}
         .feature-list {{ list-style: none; padding-left: 0; margin-top: 15px; }}
         .feature-item {{ margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #334155; }}
@@ -448,11 +484,14 @@ html_content = f"""
         .formula-box code {{ color: #facc15; font-family: monospace; font-size: 0.9rem; }}
 
         table {{ width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #1e293b; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }}
-        th {{ background-color: #334155; color: #38bdf8; text-align: left; padding: 12px 16px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; user-select: none; }}
+        th {{ background-color: #334155; color: #38bdf8; text-align: left; padding: 12px 14px; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; user-select: none; white-space: nowrap; }}
         th:hover {{ background-color: #475569; }}
         th::after {{ content: ' ↕'; font-size: 0.75rem; color: #64748b; }}
-        td {{ padding: 12px 16px; border-bottom: 1px solid #334155; font-size: 0.95rem; }}
+        td {{ padding: 10px 14px; border-bottom: 1px solid #334155; font-size: 0.92rem; white-space: nowrap; }}
         tr:hover {{ background-color: #24334d; }}
+
+        td.col-role-verdict, th.col-role-verdict {{ min-width: 190px; width: 210px; }}
+        td.col-tactical-flags, th.col-tactical-flags {{ min-width: 220px; }}
         
         .player-clickable {{ color: #38bdf8; font-weight: bold; cursor: pointer; text-decoration: underline; }}
         .player-clickable:hover {{ color: #7dd3fc; }}
@@ -461,13 +500,13 @@ html_content = f"""
         .matchup-neutral {{ color: #facc15; font-weight: bold; }}
         .matchup-tough {{ color: #f87171; font-weight: bold; }}
 
-        .verdict-badge {{ position: relative; display: inline-block; cursor: help; border-bottom: 1px dashed #64748b; }}
+        .verdict-badge {{ position: relative; display: inline-block; cursor: help; border-bottom: 1px dashed #64748b; white-space: nowrap; }}
         .verdict-badge .tooltiptext {{
-            visibility: hidden; width: 250px; background-color: #0f172a; color: #f8fafc;
+            visibility: hidden; width: 260px; background-color: #0f172a; color: #f8fafc;
             text-align: left; border: 1px solid #38bdf8; border-radius: 6px; padding: 8px 12px;
-            position: absolute; z-index: 100; left: 50%; margin-left: -125px;
+            position: absolute; z-index: 100; left: 50%; margin-left: -130px;
             opacity: 0; transition: opacity 0.2s; font-size: 0.8rem; font-weight: normal; line-height: 1.3;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: normal;
         }}
         .verdict-badge:hover .tooltiptext {{ visibility: visible; opacity: 1; }}
 
@@ -485,6 +524,11 @@ html_content = f"""
             cursor: pointer; font-weight: bold;
         }}
         .close-btn:hover {{ color: #f8fafc; }}
+
+        .modal-stat-pill {{
+            display: inline-block; background-color: #0f172a; border: 1px solid #38bdf8;
+            color: #38bdf8; font-weight: bold; padding: 3px 8px; border-radius: 4px; margin-right: 8px; font-size: 0.85rem;
+        }}
 
         tr.active-window-row {{ background-color: #1e3a8a !important; border-left: 4px solid #38bdf8; }}
         tr.active-window-row td {{ color: #ffffff; font-weight: 500; }}
@@ -525,16 +569,11 @@ html_content = f"""
             <h2>🏈 Squad Evaluation (<span id="activeTeamHeader">{default_team}</span>) <span class="toggle-hint" id="squadHint">[+ Click to expand definitions]</span></h2>
         </div>
         <div class="info-card" id="squadCard">
-            <strong>Squad Verdict Guidance & Master Definitions:</strong>
+            <strong>Squad Evaluation Architecture (Role Verdict + Tactical Flags):</strong>
             <ul>
-                <li><strong>⚠️ SHORT-TERM VOLUME (IR Replacement):</strong> Temporary starter workload due to an injury/IR ahead on depth chart. High short-term usage, but expected to drop when starter returns.</li>
-                <li><strong>🚨 AIR YARD BUY-LOW:</strong> High downfield target volume (≥65 Unrealized Air Yds/gm) but low PPR points (<11.0). Massive regression breakout candidate.</li>
-                <li><strong>🔥 CORE STARTER:</strong> Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0). Unquestioned weekly start.</li>
-                <li><strong>🚨 BUY LOW HOLD:</strong> High opportunity (Opp ≥ 0.40) and minimum target volume but low output (PPR &lt; 11.0). Do not drop.</li>
-                <li><strong>📈 SURGING ROLE:</strong> Workload velocity growing rapidly (Surge ≥ 0.100). Bench player earning a larger share of offensive plays.</li>
-                <li><strong>⚠️ FLUKE RISK (Trade Out):</strong> Scoring fantasy points on weak volume (&lt;8 touches/gm & Opp &lt; 0.22). Sell high before regression.</li>
-                <li><strong>✂️ DROP CANDIDATE:</strong> Weak volume (Opp &lt; 0.20) and poor fantasy output (PPR &lt; 8.0). Safely drop to free up bench space.</li>
-                <li><strong>👀 HOLD:</strong> Stable positional role without immediate breakout or drop signals.</li>
+                <li><strong>Role Verdict:</strong> Primary status column (<code>🔥 CORE STARTER</code>, <code>📈 SURGING ROLE</code>, <code>🚨 BUY LOW HOLD</code>, <code>✂️ DROP CANDIDATE</code>, <code>👀 HOLD</code>).</li>
+                <li><strong>Dynamic Tactical Hover:</strong> Hovering over flags reveals exact underlying stats (e.g. Air Yds, Red Zone Opps).</li>
+                <li><strong>Modal Game Logs:</strong> Click any player name to view their 3-week stat averages and full game log.</li>
             </ul>
         </div>
         <div id="squadTableContainer"></div>
@@ -574,15 +613,10 @@ html_content = f"""
             </div>
         </div>
         <div class="info-card" id="waiverCard">
-            <strong>Waiver Verdict Guidance & Master Definitions:</strong>
+            <strong>Waiver Wire Evaluation Architecture:</strong>
             <ul>
-                <li><strong>⚠️ SHORT-TERM VOLUME (IR Replacement):</strong> Temporary starter workload due to an injury ahead on the depth chart. Ideal short-term rent-a-player.</li>
-                <li><strong>🚨 AIR YARD BUY-LOW:</strong> Unowned receiver seeing major deep targets (≥65 Unrealized Air Yds/gm) with low PPR output. Priority stash.</li>
-                <li><strong>🚨 BUY LOW / TARGET:</strong> High opportunity (Opp ≥ 0.45) & target floor with weak fantasy points (PPR &lt; 10.0). Priority target.</li>
-                <li><strong>🔥 HIGH-VOLUME ALPHA:</strong> Unowned player producing elite volume (Opp ≥ 0.45) and strong PPR points (PPR ≥ 13.0). Priority pickup.</li>
-                <li><strong>📈 SURGING WORKLOAD:</strong> Workload velocity jumping rapidly over the past 3 weeks (Surge ≥ 0.100).</li>
-                <li><strong>⚠️ SELL HIGH / FLUKE:</strong> Points scored without underlying volume (&lt;8 touches/gm). High risk for waiver spending.</li>
-                <li><strong>👀 STASH:</strong> Low volume/points currently, but worth monitoring for deep bench storage.</li>
+                <li><strong>Role Verdict:</strong> Priority classification for unowned assets (<code>🔥 HIGH-VOLUME ALPHA</code>, <code>🚨 BUY LOW / TARGET</code>, <code>📈 SURGING WORKLOAD</code>, <code>👀 STASH</code>).</li>
+                <li><strong>Tactical Flags:</strong> Actionable overlay tags including <code>🎯 RED ZONE BUY-LOW</code>, <code>🚨 AIR YARD BUY-LOW</code>, and <code>⚠️ SHORT-TERM VOLUME</code>.</li>
             </ul>
         </div>
         <div id="waiverTableContainer"></div>
@@ -593,11 +627,9 @@ html_content = f"""
             <button class="toggle-btn" onclick="openTradeAnalyzerModal()" style="margin-left: 15px; background-color: #38bdf8; color: #0f172a;">⚖️ Open Trade Analyzer</button>
         </div>
         <div class="info-card" id="tradeCard">
-            <strong>Trade Verdict Guidance & Master Definitions:</strong>
+            <strong>Trade Targets Architecture:</strong>
             <ul>
-                <li><strong>⚠️ SHORT-TERM VOLUME (IR Replacement):</strong> Backup producing temporarily; sell high before primary starter returns.</li>
-                <li><strong>🚨 AIR YARD BUY-LOW:</strong> Target receivers with massive downfield volume (≥65 Unrealized Air Yds/gm) underperforming on points.</li>
-                <li><strong>🚨 BUY LOW / TRADE TARGET:</strong> Player rostered by a rival manager with significant workload (Opp ≥ 0.40) underperforming on points (PPR &lt; 11.0).</li>
+                <li>Highlights rival rostered players seeing substantial workload (Opp ≥ 0.40, deep air yards, or high red zone volume) but severely underperforming on fantasy points.</li>
             </ul>
         </div>
         <div style="margin-top: 10px;">
@@ -626,16 +658,33 @@ html_content = f"""
                 </li>
 
                 <li class="feature-item">
-                    <span class="feature-title">🔄 Trade Analyzer Tool</span>
+                    <span class="feature-title">🎯 Red Zone Workload Share & TD Regression Engine</span>
                     <div class="feature-desc">
-                        A dynamic mini-modal calculator that evaluates 1-for-1, 2-for-1, or 2-for-2 trade proposals between rostered assets across rival managers. Filter assets by rival team/manager to compute net changes in <code>Opportunity Score</code> and <code>PPR Average</code>.
+                        Isolates high-leverage targets, carries, and touchdowns inside the scoring zone. Automatically flags players getting prime goal-line usage who are underperforming on touchdowns with <code>🎯 RED ZONE BUY-LOW</code>.
+                    </div>
+                    <div class="formula-box">
+                        <div>• <code>Red Zone Opportunity Score (RZ Opp):</code> 0.35 × Targets + 0.25 × Carries + 1.5 × TDs</div>
+                    </div>
+                </li>
+
+                <li class="feature-item">
+                    <span class="feature-title">🔄 Streamlined Trade Impact Analyzer</span>
+                    <div class="feature-desc">
+                        A dynamic mini-modal calculator that evaluates multi-player trade proposals between rostered assets across rival managers. Filter assets by rival team/manager to compute net changes in <code>Opportunity Score</code> and <code>PPR Average</code>.
+                    </div>
+                </li>
+
+                <li class="feature-item">
+                    <span class="feature-title">🧩 Ultra-Clean Table Layout & Hover Stat Integration</span>
+                    <div class="feature-desc">
+                        Reduces visual clutter by removing standalone Air Yards and Red Zone columns from the main tables while embedding exact numbers into <strong>Tactical Flag hover tooltips</strong> and the <strong>Player Modal header</strong>.
                     </div>
                 </li>
 
                 <li class="feature-item">
                     <span class="feature-title">🎯 Unrealized Air Yards</span>
                     <div class="feature-desc">
-                        Tracks downfield target volume (<code>Air Yards − Completed Air Yards</code>). Automatically flags positive regression candidates underperforming on points with <code>🚨 AIR YARD BUY-LOW</code>.
+                        Tracks downfield target volume (<code>Target Air Yards − Completed Air Yards</code>). Automatically flags positive regression candidates underperforming on points with <code>🚨 AIR YARD BUY-LOW</code>.
                     </div>
                 </li>
 
@@ -663,7 +712,7 @@ html_content = f"""
                 <li class="feature-item">
                     <span class="feature-title">🛡️ Depth Chart & IR Volume Guardrail</span>
                     <div class="feature-desc">
-                        Tracks team depth order and injury reports. Automatically tags backup players stepping into starter roles with <code>⚠️ SHORT-TERM VOLUME (IR Replacement)</code> to prevent false trade/breakout signals.
+                        Tracks team depth order and injury reports. Automatically tags backup players stepping into starter roles with <code>⚠️ SHORT-TERM VOLUME</code> to prevent false trade/breakout signals.
                     </div>
                 </li>
 
@@ -682,12 +731,12 @@ html_content = f"""
         <div class="modal-card">
             <span class="close-btn" onclick="closeModal()">&times;</span>
             <h2 id="modalPlayerName" style="color:#38bdf8; margin-top:0;">Player Details</h2>
-            <p id="modalSubhead" style="color:#94a3b8; font-size:0.9rem;"></p>
+            <div id="modalSubhead" style="color:#94a3b8; font-size:0.9rem; margin-bottom: 15px;"></div>
             <div id="modalTableContainer"></div>
         </div>
     </div>
 
-    <!-- TRADE ANALYZER MODAL WITH RECEIVING TEAM SELECTOR -->
+    <!-- STREAMLINED TRADE ANALYZER MODAL -->
     <div id="tradeAnalyzerModal" class="modal-overlay">
         <div class="modal-card" style="max-width: 700px;">
             <span class="close-btn" onclick="closeTradeAnalyzerModal()">&times;</span>
@@ -732,12 +781,13 @@ html_content = f"""
         let isTradeExpanded = false;
 
         const verdictTooltips = {{
-            '⚠️ SHORT-TERM VOLUME (IR Replacement)': 'Elevated workload resulting from starter injury/IR. High immediate volume, but temporary value.',
+            '⚠️ SHORT-TERM VOLUME': 'Elevated workload resulting from starter injury/IR. High immediate volume, but temporary value.',
             '🚨 AIR YARD BUY-LOW': 'High downfield target volume (≥65 Unrealized Air Yds/gm) but low PPR points (<11.0). Prime positive regression breakout candidate.',
+            '🎯 RED ZONE BUY-LOW': 'High red-zone opportunity index (≥2.5) with low touchdown output (≤1 TD over trailing 3 games). Immediate TD regression candidate.',
             '🔥 CORE STARTER': 'Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0). Unquestioned weekly start.',
             '🚨 BUY LOW HOLD': 'High opportunity (Opp ≥ 0.40) & target floor but low output (PPR < 11.0). Do not drop; breakout incoming.',
             '📈 SURGING ROLE': 'Workload velocity growing rapidly (Surge ≥ 0.100). Bench player earning a larger share of offensive plays.',
-            '⚠️ FLUKE RISK (Trade Out)': 'Scoring fantasy points on weak volume (<8 touches/gm & Opp < 0.22). Sell high before efficiency drops.',
+            '⚠️ FLUKE RISK': 'Scoring fantasy points on weak volume (<8 touches/gm & Opp < 0.22). Sell high before efficiency drops.',
             '✂️ DROP CANDIDATE': 'Weak volume (Opp < 0.20) and poor fantasy output (PPR < 8.0). Safely drop to free up bench space.',
             '👀 HOLD': 'Stable positional role without immediate breakout or drop signals.',
             '🚨 BUY LOW / TARGET': 'High opportunity (Opp ≥ 0.45) & target floor with weak fantasy points (PPR < 10.0). Prime waiver target.',
@@ -811,7 +861,6 @@ html_content = f"""
             const activeTeam = document.getElementById('teamSelect').value;
             document.getElementById('giveTeamLabel').innerText = activeTeam;
 
-            // 1. Giving Away: Restricted to active manager's roster
             const givePlayers = masterSquadData.filter(p => p.fantasy_team === activeTeam);
             let giveOpts1 = '<option value="">Select Player 1...</option>';
             let giveOpts2 = '<option value="">Select Player 2 (Optional)...</option>';
@@ -825,7 +874,6 @@ html_content = f"""
             document.getElementById('givePlayer1').innerHTML = giveOpts1;
             document.getElementById('givePlayer2').innerHTML = giveOpts2;
 
-            // 2. Populate Receiving Manager Dropdown
             const rivalTeams = Array.from(new Set(masterSquadData.map(p => p.fantasy_team)))
                                    .filter(t => t !== activeTeam)
                                    .sort();
@@ -921,13 +969,13 @@ html_content = f"""
             document.getElementById('activeTeamHeader').innerText = selectedTeam;
 
             const squadFiltered = masterSquadData.filter(row => row.fantasy_team === selectedTeam);
-            renderTable('squadTableContainer', squadFiltered, ['Slot', 'Player', 'Pos', 'Team', 'Opp Score', 'Surge', 'Unrealized AY', 'PPR Avg', 'Trend (PPR)', 'Verdict']);
+            renderTable('squadTableContainer', squadFiltered, ['Slot', 'Player', 'Pos', 'Team', 'Opp Score', 'Surge', 'PPR Avg', 'Trend (PPR)', 'Role Verdict', 'Tactical Flags']);
 
             let tradeFiltered = masterTradeData.filter(row => row.Owner !== selectedTeam);
             if (!isTradeExpanded) {{
                 tradeFiltered = tradeFiltered.slice(0, 5);
             }}
-            renderTable('tradeTableContainer', tradeFiltered, ['Owner', 'Player', 'Pos', 'Team', 'Opp Score', 'Unrealized AY', 'PPR Avg', 'Trend (PPR)', 'Verdict']);
+            renderTable('tradeTableContainer', tradeFiltered, ['Owner', 'Player', 'Pos', 'Team', 'Opp Score', 'PPR Avg', 'Trend (PPR)', 'Role Verdict', 'Tactical Flags']);
 
             renderSOSTable(squadFiltered);
             attachSortListeners();
@@ -998,7 +1046,7 @@ html_content = f"""
                 waiverFiltered = masterWaiverData.filter(row => row.Pos === selectedPos);
             }}
             
-            renderTable('waiverTableContainer', waiverFiltered.slice(0, 15), ['Player', 'Pos', 'Team', 'Opp Score', 'Surge (Velocity)', 'Unrealized AY', 'PPR Avg', 'Trend (PPR)', 'Verdict']);
+            renderTable('waiverTableContainer', waiverFiltered.slice(0, 15), ['Player', 'Pos', 'Team', 'Opp Score', 'Surge (Velocity)', 'PPR Avg', 'Trend (PPR)', 'Role Verdict', 'Tactical Flags']);
             attachSortListeners();
         }}
 
@@ -1008,7 +1056,12 @@ html_content = f"""
                 return;
             }}
             let html = '<table class="sortable"><thead><tr>';
-            columns.forEach(col => html += `<th>${{col}}</th>`);
+            columns.forEach(col => {{
+                let extraClass = '';
+                if (col === 'Role Verdict') extraClass = ' class="col-role-verdict"';
+                else if (col === 'Tactical Flags') extraClass = ' class="col-tactical-flags"';
+                html += `<th${{extraClass}}>${{col}}</th>`;
+            }});
             html += '</tr></thead><tbody>';
             
             data.forEach((row, rowIndex) => {{
@@ -1019,10 +1072,29 @@ html_content = f"""
                         html += `<td><span class="player-clickable" onclick="openPlayerModal('${{row.clean_name}}', '${{row.Player}}')">${{val}}</span></td>`;
                     }} else if (col === 'Trend (PPR)') {{
                         html += `<td>${{generateSparklineSVG(row.clean_name, rowIndex)}}</td>`;
-                    }} else if (col === 'Verdict') {{
-                        const desc = verdictTooltips[val] || 'Calculated verdict rule based on opportunity score and scoring trends.';
+                    }} else if (col === 'Role Verdict') {{
+                        const desc = verdictTooltips[val] || 'Baseline player status classification.';
                         const popDirection = rowIndex === 0 ? 'top: 125%;' : 'bottom: 125%;';
-                        html += `<td><div class="verdict-badge">${{val}}<span class="tooltiptext" style="${{popDirection}}">${{desc}}</span></div></td>`;
+                        html += `<td class="col-role-verdict"><div class="verdict-badge">${{val}}<span class="tooltiptext" style="${{popDirection}}">${{desc}}</span></div></td>`;
+                    }} else if (col === 'Tactical Flags') {{
+                        if (val === '—') {{
+                            html += `<td class="col-tactical-flags" style="color:#64748b;">—</td>`;
+                        }} else {{
+                            const tags = val.split(' | ');
+                            let badgeHtml = tags.map(tag => {{
+                                let desc = verdictTooltips[tag] || 'Actionable tactical consideration.';
+                                
+                                if (tag === '🚨 AIR YARD BUY-LOW' && row.air_yds_val !== undefined) {{
+                                    desc += ' [3-Wk Air Yds Avg: ' + row.air_yds_val + ' yds/gm]';
+                                }} else if (tag === '🎯 RED ZONE BUY-LOW' && row.rz_opp_val !== undefined) {{
+                                    desc += ' [3-Wk RZ Opp Index: ' + row.rz_opp_val + ']';
+                                }}
+
+                                const popDirection = rowIndex === 0 ? 'top: 125%;' : 'bottom: 125%;';
+                                return `<div class="verdict-badge" style="margin-right: 4px;">${{tag}}<span class="tooltiptext" style="${{popDirection}}">${{desc}}</span></div>`;
+                            }}).join(' | ');
+                            html += `<td class="col-tactical-flags">${{badgeHtml}}</td>`;
+                        }}
                     }} else {{
                         html += `<td>${{val}}</td>`;
                     }}
@@ -1037,16 +1109,35 @@ html_content = f"""
             const playerGames = granularData.filter(g => g.clean_name === cleanName);
             document.getElementById('modalPlayerName').innerText = playerName;
             
+            const allMaster = masterSquadData.concat(masterWaiverData);
+            const pSummary = allMaster.find(p => p.clean_name === cleanName);
+            
             if (playerGames.length === 0) {{
                 document.getElementById('modalSubhead').innerText = "No active game logs available.";
                 document.getElementById('modalTableContainer').innerHTML = "";
             }} else {{
+                let statBadgesHtml = '';
+                if (pSummary) {{
+                    const airYds = pSummary.air_yds_val !== undefined ? pSummary.air_yds_val : 'N/A';
+                    const rzOpp = pSummary.rz_opp_val !== undefined ? pSummary.rz_opp_val : 'N/A';
+                    const surgeVal = pSummary.Surge !== undefined ? pSummary.Surge : (pSummary['Surge (Velocity)'] || '0.0');
+
+                    statBadgesHtml = `
+                        <div style="margin-top: 8px;">
+                            <span class="modal-stat-pill">🎯 3-Wk Air Yds Avg: ${{airYds}} yds/gm</span>
+                            <span class="modal-stat-pill">🚩 3-Wk RZ Opp Index: ${{rzOpp}}</span>
+                            <span class="modal-stat-pill">📈 Surge Velocity: ${{surgeVal}}</span>
+                        </div>
+                    `;
+                }}
+
                 document.getElementById('modalSubhead').innerHTML = `
-                    Full Season Game Logs (Position: <strong>${{playerGames[0].position}}</strong>) | 
+                    Position: <strong>${{playerGames[0].position}}</strong> | 
                     <span style="color:#38bdf8;">Blue rows indicate active 3-week heuristic window</span>
+                    ${{statBadgesHtml}}
                 `;
                 
-                let html = '<table><thead><tr><th>Season</th><th>Week</th><th>Targets</th><th>Carries</th><th>Pass Att</th><th>Target Share</th><th>Air Yard Share</th><th>Unrealized AY</th><th>Opp Score</th><th>PPR Pts</th></tr></thead><tbody>';
+                let html = '<table class="sortable"><thead><tr><th>Season</th><th>Week</th><th>Targets</th><th>Carries</th><th>Pass Att</th><th>Target Share</th><th>Air Yard Share</th><th>Unrealized AY</th><th>RZ Opp</th><th>TDs</th><th>Opp Score</th><th>PPR Pts</th></tr></thead><tbody>';
                 playerGames.forEach(g => {{
                     const isActiveWindow = g.game_rn <= 3;
                     const rowClass = isActiveWindow ? 'class="active-window-row"' : '';
@@ -1061,12 +1152,17 @@ html_content = f"""
                         <td>${{(g.tgt_share * 100).toFixed(1)}}%</td>
                         <td>${{(g.ay_share * 100).toFixed(1)}}%</td>
                         <td><strong>${{g.unrealized_ay}}</strong></td>
+                        <td><strong>${{g.rz_opp}}</strong></td>
+                        <td><strong>${{g.total_tds}}</strong></td>
                         <td><strong>${{g.opp_score}}</strong></td>
                         <td><strong>${{g.ppr_pts}}</strong></td>
                     </tr>`;
                 }});
                 html += '</tbody></table>';
                 document.getElementById('modalTableContainer').innerHTML = html;
+
+                // Re-attach sort listeners dynamically to modal table header
+                attachSortListeners();
             }}
             
             document.getElementById('playerModal').style.display = 'flex';
