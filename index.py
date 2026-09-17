@@ -206,12 +206,12 @@ default_team = (
     "Vader's Raiders" if "Vader's Raiders" in all_teams else all_teams[0]
 )
 
-# 5. Calculate Defensive SOS Rankings
+# 5. Calculate Defensive SOS Rankings (DESC ordering: Rank 1 = Allows Most Points = EASY)
 def_points_allowed_query = """
 SELECT 
     opponent_team as def_team, position, 
     AVG(fantasy_points_ppr) as avg_pts_allowed,
-    RANK() OVER (PARTITION BY position ORDER BY AVG(fantasy_points_ppr) ASC) as def_rank
+    RANK() OVER (PARTITION BY position ORDER BY AVG(fantasy_points_ppr) DESC) as def_rank
 FROM df_nfl
 WHERE season = 2026
 GROUP BY opponent_team, position
@@ -347,7 +347,7 @@ df_granular = duckdb.query(granular_query).df()
 # 9. Master Table Queries
 squad_master_sql = """
 SELECT 
-    r.fantasy_team, r.roster_pos as "Slot", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team",
+    r.fantasy_team, r.roster_pos as "Slot", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team", bm.injury_status,
     ROUND(bm.blended_opp, 3) as "Opp Score", ROUND(bm.opp_surge, 3) as "Surge", 
     ROUND(bm.curr_3wk_unrealized_ay, 1) as "air_yds_val", 
     ROUND(bm.curr_3wk_rz_opp, 1) as "rz_opp_val", 
@@ -361,6 +361,8 @@ SELECT
         ELSE '👀 HOLD'
     END as "Role Verdict",
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
+        CASE WHEN bm.injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
+             WHEN bm.injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
         CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
         CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW' END,
         CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END,
@@ -374,7 +376,7 @@ df_squad_master = duckdb.query(squad_master_sql).df()
 
 waiver_sql = """
 SELECT 
-    player_name as "Player", clean_name, position as "Pos", team as "Team",
+    player_name as "Player", clean_name, position as "Pos", team as "Team", injury_status,
     ROUND(blended_opp, 3) as "Opp Score", ROUND(opp_surge, 3) as "Surge (Velocity)", 
     ROUND(curr_3wk_unrealized_ay, 1) as "air_yds_val", 
     ROUND(curr_3wk_rz_opp, 1) as "rz_opp_val", 
@@ -387,6 +389,8 @@ SELECT
         ELSE '👀 STASH'
     END as "Role Verdict",
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
+        CASE WHEN injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
+             WHEN injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
         CASE WHEN depth_rank > 1 AND blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
         CASE WHEN position IN ('WR', 'TE') AND curr_3wk_unrealized_ay >= 65.0 AND curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW' END,
         CASE WHEN curr_3wk_rz_opp >= 2.5 AND curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END,
@@ -400,7 +404,7 @@ df_waiver = duckdb.query(waiver_sql).df()
 
 trade_master_sql = """
 SELECT 
-    r.fantasy_team as "Owner", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team",
+    r.fantasy_team as "Owner", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team", bm.injury_status,
     ROUND(bm.blended_opp, 3) as "Opp Score", 
     ROUND(bm.curr_3wk_unrealized_ay, 1) as "air_yds_val", 
     ROUND(bm.curr_3wk_rz_opp, 1) as "rz_opp_val", 
@@ -408,6 +412,8 @@ SELECT
     'SPARKLINE' as "Trend (PPR)",
     '🚨 BUY LOW / TRADE TARGET' as "Role Verdict",
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
+        CASE WHEN bm.injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
+             WHEN bm.injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
         CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
         CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 THEN '🚨 AIR YARD BUY-LOW' END,
         CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END
@@ -434,6 +440,7 @@ html_content = f"""
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fandromeda Interactive Dashboard</title>
     <style>
         body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; margin: 0; }}
@@ -533,6 +540,66 @@ html_content = f"""
         tr.active-window-row {{ background-color: #1e3a8a !important; border-left: 4px solid #38bdf8; }}
         tr.active-window-row td {{ color: #ffffff; font-weight: 500; }}
         .active-window-badge {{ background-color: #38bdf8; color: #0f172a; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }}
+
+        .injury-badge-out {{ background-color: #ef4444; color: #ffffff; font-size: 0.7rem; font-weight: bold; padding: 2px 5px; border-radius: 4px; margin-left: 6px; }}
+        .injury-badge-q {{ background-color: #f59e0b; color: #0f172a; font-size: 0.7rem; font-weight: bold; padding: 2px 5px; border-radius: 4px; margin-left: 6px; }}
+
+        /* RESPONSIVE MOBILE OVERRIDES */
+        @media screen and (max-width: 768px) {{
+            body {{
+                padding: 12px;
+            }}
+
+            .header-container {{
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }}
+            
+            .controls {{
+                width: 100%;
+                justify-content: space-between;
+            }}
+
+            .timestamp-bar {{
+                flex-direction: column;
+                gap: 6px;
+            }}
+
+            .tab-bar {{
+                overflow-x: auto;
+                white-space: nowrap;
+                padding-bottom: 4px;
+            }}
+
+            .tab-btn {{
+                padding: 8px 14px;
+                font-size: 0.9rem;
+            }}
+
+            #squadTableContainer, 
+            #waiverTableContainer, 
+            #tradeTableContainer, 
+            #sosTableContainer,
+            #modalTableContainer {{
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }}
+
+            table {{
+                font-size: 0.82rem;
+            }}
+
+            th, td {{
+                padding: 8px 10px;
+            }}
+
+            .modal-card {{
+                width: 95%;
+                padding: 15px;
+                max-height: 90vh;
+            }}
+        }}
     </style>
 </head>
 <body>
@@ -781,12 +848,14 @@ html_content = f"""
         let isTradeExpanded = false;
 
         const verdictTooltips = {{
+            '🚑 INJURED / OUT': 'Player listed as Out, Doubtful, or on IR. High injury risk; verify status before starting.',
+            '⚠️ QUESTIONABLE': 'Player listed as Questionable on official NFL injury report. Monitor practice participation.',
             '⚠️ SHORT-TERM VOLUME': 'Elevated workload resulting from starter injury/IR. High immediate volume, but temporary value.',
             '🚨 AIR YARD BUY-LOW': 'High downfield target volume (≥65 Unrealized Air Yds/gm) but low PPR points (<11.0). Prime positive regression breakout candidate.',
             '🎯 RED ZONE BUY-LOW': 'High red-zone opportunity index (≥2.5) with low touchdown output (≤1 TD over trailing 3 games). Immediate TD regression candidate.',
             '🔥 CORE STARTER': 'Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0). Unquestioned weekly start.',
             '🚨 BUY LOW HOLD': 'High opportunity (Opp ≥ 0.40) & target floor but low output (PPR < 11.0). Do not drop; breakout incoming.',
-            '📈 SURGING ROLE': 'Workload velocity growing rapidly (Surge ≥ 0.100). Bench player earning a larger share of offensive plays.',
+            '📈 SURGING ROLE': 'Workload velocity growing rapidly (Surge ≥ 0.100). Multi-week acceleration in positional role usage.',
             '⚠️ FLUKE RISK': 'Scoring fantasy points on weak volume (<8 touches/gm & Opp < 0.22). Sell high before efficiency drops.',
             '✂️ DROP CANDIDATE': 'Weak volume (Opp < 0.20) and poor fantasy output (PPR < 8.0). Safely drop to free up bench space.',
             '👀 HOLD': 'Stable positional role without immediate breakout or drop signals.',
@@ -959,8 +1028,13 @@ html_content = f"""
             const match = defSosData.find(d => d.def_team === oppTeam && d.position === position);
             if (!match) return 'matchup-neutral';
             const rank = match.def_rank;
-            if (rank <= 8) return 'matchup-easy';
-            if (rank >= 24) return 'matchup-tough';
+            
+            // Rank 1-8 = Allows most points = EASY
+            if (rank <= 8) return 'matchup-easy'; 
+            
+            // Rank 25-32 = Allows fewest points = TOUGH
+            if (rank >= 25) return 'matchup-tough'; 
+            
             return 'matchup-neutral';
         }}
 
@@ -1025,9 +1099,16 @@ html_content = f"""
                     }}
                 }});
 
+                let injuryBadge = '';
+                if (['Out', 'IR', 'Doubtful'].includes(p.injury_status)) {{
+                    injuryBadge = '<span class="injury-badge-out">OUT</span>';
+                }} else if (p.injury_status === 'Questionable') {{
+                    injuryBadge = '<span class="injury-badge-q">Q</span>';
+                }}
+
                 html += `<tr>
                     <td>${{p.Slot}}</td>
-                    <td><span class="player-clickable" onclick="openPlayerModal('${{p.clean_name}}', '${{p.Player}}')">${{p.Player}}</span></td>
+                    <td><span class="player-clickable" onclick="openPlayerModal('${{p.clean_name}}', '${{p.Player}}')">${{p.Player}}</span>${{injuryBadge}}</td>
                     <td>${{p.Pos}}</td>
                     <td>${{p.Team}}</td>
                     <td>${{nextWkRatingBadge}}</td>
@@ -1069,7 +1150,13 @@ html_content = f"""
                 columns.forEach(col => {{
                     let val = row[col] !== null ? row[col] : 'N/A';
                     if (col === 'Player') {{
-                        html += `<td><span class="player-clickable" onclick="openPlayerModal('${{row.clean_name}}', '${{row.Player}}')">${{val}}</span></td>`;
+                        let injuryBadge = '';
+                        if (['Out', 'IR', 'Doubtful'].includes(row.injury_status)) {{
+                            injuryBadge = '<span class="injury-badge-out">OUT</span>';
+                        }} else if (row.injury_status === 'Questionable') {{
+                            injuryBadge = '<span class="injury-badge-q">Q</span>';
+                        }}
+                        html += `<td><span class="player-clickable" onclick="openPlayerModal('${{row.clean_name}}', '${{row.Player}}')">${{val}}</span>${{injuryBadge}}</td>`;
                     }} else if (col === 'Trend (PPR)') {{
                         html += `<td>${{generateSparklineSVG(row.clean_name, rowIndex)}}</td>`;
                     }} else if (col === 'Role Verdict') {{
@@ -1121,9 +1208,11 @@ html_content = f"""
                     const airYds = pSummary.air_yds_val !== undefined ? pSummary.air_yds_val : 'N/A';
                     const rzOpp = pSummary.rz_opp_val !== undefined ? pSummary.rz_opp_val : 'N/A';
                     const surgeVal = pSummary.Surge !== undefined ? pSummary.Surge : (pSummary['Surge (Velocity)'] || '0.0');
+                    const injStatus = pSummary.injury_status || 'Active';
 
                     statBadgesHtml = `
                         <div style="margin-top: 8px;">
+                            <span class="modal-stat-pill">🏥 Status: ${{injStatus}}</span>
                             <span class="modal-stat-pill">🎯 3-Wk Air Yds Avg: ${{airYds}} yds/gm</span>
                             <span class="modal-stat-pill">🚩 3-Wk RZ Opp Index: ${{rzOpp}}</span>
                             <span class="modal-stat-pill">📈 Surge Velocity: ${{surgeVal}}</span>
@@ -1217,4 +1306,6 @@ print(
     "✅ Fandromeda Dashboard updated successfully with all latest features:"
     f" '{output_file}'"
 )
-webbrowser.open("file://" + os.path.realpath(output_file))
+
+if not os.getenv("GITHUB_ACTIONS"):
+    webbrowser.open("file://" + os.path.realpath(output_file))
