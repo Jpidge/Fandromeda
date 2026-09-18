@@ -211,7 +211,6 @@ def calc_pos_opp(row):
     target_share = min(1.0, targets / 35.0)
 
   if pos in ["WR", "TE"]:
-    # WOPR derivative formula + snap share weighting
     return (1.2 * target_share) + (0.6 * air_yards_share) + (0.3 * snap_pct)
   elif pos == "RB":
     return (0.8 * rushing_share) + (1.2 * target_share) + (0.3 * snap_pct)
@@ -373,7 +372,7 @@ SELECT * FROM active_games ORDER BY clean_name, season DESC, week DESC;
 """
 df_granular = duckdb.query(granular_query).df()
 
-# 9. Master Table Queries
+# 9. Master Table Queries (Emoji-Free Verdict Text)
 squad_master_sql = """
 SELECT 
     r.fantasy_team, r.roster_pos as "Slot", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team", bm.injury_status,
@@ -384,20 +383,20 @@ SELECT
     ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
     'SPARKLINE' as "Trend (PPR)",
     CASE 
-        WHEN bm.blended_opp >= 0.45 AND bm.curr_3wk_ppr >= 13.0 THEN '🔥 CORE STARTER'
-        WHEN bm.opp_surge >= 0.100 THEN '📈 SURGING ROLE'
-        WHEN bm.blended_opp >= 0.40 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 BUY LOW HOLD'
-        WHEN bm.blended_opp < 0.20 AND bm.curr_3wk_ppr < 8.0 THEN '✂️ DROP CANDIDATE'
-        ELSE '👀 HOLD'
+        WHEN bm.blended_opp >= 0.45 AND bm.curr_3wk_ppr >= 13.0 THEN 'CORE STARTER'
+        WHEN bm.opp_surge >= 0.100 THEN 'SURGING ROLE'
+        WHEN bm.blended_opp >= 0.40 AND bm.curr_3wk_ppr < 11.0 THEN 'BUY LOW HOLD'
+        WHEN bm.blended_opp < 0.20 AND bm.curr_3wk_ppr < 8.0 THEN 'DROP CANDIDATE'
+        ELSE 'HOLD'
     END as "Role Verdict",
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
-        CASE WHEN bm.injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
-             WHEN bm.injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
-        CASE WHEN bm.snap_pct_val >= 75.0 AND bm.curr_3wk_ppr < 10.0 THEN '⏱️ HIGH SNAP BUY-LOW' END,
-        CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
-        CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW' END,
-        CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END,
-        CASE WHEN bm.blended_opp < 0.22 AND bm.curr_3wk_touches < 8.0 AND bm.curr_3wk_ppr >= 13.0 THEN '⚠️ FLUKE RISK' END
+        CASE WHEN bm.injury_status IN ('Out', 'IR', 'Doubtful') THEN 'INJURED / OUT' 
+             WHEN bm.injury_status IN ('Questionable') THEN 'QUESTIONABLE' END,
+        CASE WHEN bm.snap_pct_val >= 75.0 AND bm.curr_3wk_ppr < 10.0 THEN 'HIGH SNAP BUY-LOW' END,
+        CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN 'SHORT-TERM VOLUME' END,
+        CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 AND bm.curr_3wk_ppr < 11.0 THEN 'AIR YARD BUY-LOW' END,
+        CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN 'RED ZONE BUY-LOW' END,
+        CASE WHEN bm.blended_opp < 0.22 AND bm.curr_3wk_touches < 8.0 AND bm.curr_3wk_ppr >= 13.0 THEN 'FLUKE RISK' END
     ], x -> x IS NOT NULL), ' | '), ''), '—') as "Tactical Flags"
 FROM df_rosters r
 JOIN df_analytics bm ON r.clean_name = bm.clean_name
@@ -415,19 +414,19 @@ SELECT
     ROUND(curr_3wk_ppr, 1) as "PPR Avg",
     'SPARKLINE' as "Trend (PPR)",
     CASE 
-        WHEN blended_opp >= 0.45 AND curr_3wk_ppr >= 13.0 THEN '🔥 HIGH-VOLUME ALPHA'
-        WHEN blended_opp >= 0.45 AND curr_3wk_targets >= 4.0 AND curr_3wk_ppr < 10.0 THEN '🚨 BUY LOW / TARGET'
-        WHEN opp_surge >= 0.100 THEN '📈 SURGING WORKLOAD'
-        ELSE '👀 STASH'
+        WHEN blended_opp >= 0.45 AND curr_3wk_ppr >= 13.0 THEN 'HIGH-VOLUME ALPHA'
+        WHEN blended_opp >= 0.45 AND curr_3wk_targets >= 4.0 AND curr_3wk_ppr < 10.0 THEN 'BUY LOW / TARGET'
+        WHEN opp_surge >= 0.100 THEN 'SURGING WORKLOAD'
+        ELSE 'STASH'
     END as "Role Verdict",
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
-        CASE WHEN injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
-             WHEN injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
-        CASE WHEN snap_pct_val >= 75.0 AND curr_3wk_ppr < 10.0 THEN '⏱️ HIGH SNAP BUY-LOW' END,
-        CASE WHEN depth_rank > 1 AND blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
-        CASE WHEN position IN ('WR', 'TE') AND curr_3wk_unrealized_ay >= 65.0 AND curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW' END,
-        CASE WHEN curr_3wk_rz_opp >= 2.5 AND curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END,
-        CASE WHEN blended_opp < 0.22 AND curr_3wk_touches < 8.0 AND curr_3wk_ppr >= 13.0 THEN '⚠️ SELL HIGH / FLUKE' END
+        CASE WHEN injury_status IN ('Out', 'IR', 'Doubtful') THEN 'INJURED / OUT' 
+             WHEN injury_status IN ('Questionable') THEN 'QUESTIONABLE' END,
+        CASE WHEN snap_pct_val >= 75.0 AND curr_3wk_ppr < 10.0 THEN 'HIGH SNAP BUY-LOW' END,
+        CASE WHEN depth_rank > 1 AND blended_opp >= 0.35 THEN 'SHORT-TERM VOLUME' END,
+        CASE WHEN position IN ('WR', 'TE') AND curr_3wk_unrealized_ay >= 65.0 AND curr_3wk_ppr < 11.0 THEN 'AIR YARD BUY-LOW' END,
+        CASE WHEN curr_3wk_rz_opp >= 2.5 AND curr_3wk_tds <= 1 THEN 'RED ZONE BUY-LOW' END,
+        CASE WHEN blended_opp < 0.22 AND curr_3wk_touches < 8.0 AND curr_3wk_ppr >= 13.0 THEN 'SELL HIGH / FLUKE' END
     ], x -> x IS NOT NULL), ' | '), ''), '—') as "Tactical Flags"
 FROM df_analytics
 WHERE clean_name NOT IN (SELECT clean_name FROM df_rosters)
@@ -444,14 +443,14 @@ SELECT
     ROUND(bm.curr_3wk_rz_opp, 1) as "rz_opp_val", 
     ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
     'SPARKLINE' as "Trend (PPR)",
-    '🚨 BUY LOW / TRADE TARGET' as "Role Verdict",
+    'BUY LOW / TRADE TARGET' as "Role Verdict",
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
-        CASE WHEN bm.injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
-             WHEN bm.injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
-        CASE WHEN bm.snap_pct_val >= 75.0 AND bm.curr_3wk_ppr < 10.0 THEN '⏱️ HIGH SNAP BUY-LOW' END,
-        CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
-        CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 THEN '🚨 AIR YARD BUY-LOW' END,
-        CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END
+        CASE WHEN bm.injury_status IN ('Out', 'IR', 'Doubtful') THEN 'INJURED / OUT' 
+             WHEN bm.injury_status IN ('Questionable') THEN 'QUESTIONABLE' END,
+        CASE WHEN bm.snap_pct_val >= 75.0 AND bm.curr_3wk_ppr < 10.0 THEN 'HIGH SNAP BUY-LOW' END,
+        CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN 'SHORT-TERM VOLUME' END,
+        CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 THEN 'AIR YARD BUY-LOW' END,
+        CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN 'RED ZONE BUY-LOW' END
     ], x -> x IS NOT NULL), ' | '), ''), '—') as "Tactical Flags"
 FROM df_rosters r
 JOIN df_analytics bm ON r.clean_name = bm.clean_name
@@ -478,106 +477,257 @@ html_content = f"""
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fandromeda Interactive Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; margin: 0; }}
-        .header-container {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }}
-        .section-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; margin-top: 25px; padding-bottom: 8px; cursor: pointer; user-select: none; }}
-        .section-header h2 {{ color: #94a3b8; font-size: 1.3rem; margin: 0; border: none; padding: 0; }}
-        .toggle-hint {{ color: #38bdf8; font-size: 0.8rem; font-weight: normal; margin-left: 10px; }}
-        h1 {{ color: #38bdf8; font-size: 2.2rem; margin: 0; }}
-        .timestamp-bar {{ display: flex; gap: 20px; font-size: 0.85rem; color: #94a3b8; background-color: #1e293b; padding: 8px 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #334155; }}
-        .controls {{ display: flex; align-items: center; gap: 10px; }}
-        select {{ background-color: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 12px; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; outline: none; }}
-        select:hover {{ background-color: #334155; }}
-
-        .tab-bar {{ display: flex; gap: 10px; border-bottom: 2px solid #334155; padding-bottom: 0; margin-bottom: 20px; }}
-        .tab-btn {{
-            background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; border-bottom: none;
-            padding: 10px 20px; border-radius: 8px 8px 0 0; font-size: 1rem; font-weight: bold;
-            cursor: pointer; transition: all 0.2s; position: relative; top: 2px;
+        :root {{
+            --bg: #060a10;
+            --panel: #0c131c;
+            --panel-alt: #0f1822;
+            --border: #1b2735;
+            --text: #dbe7f0;
+            --muted: #62778a;
+            --cyan: #2de2c8;
+            --magenta: #ff3d81;
+            --amber: #ffb020;
+            --violet: #8a7dff;
         }}
-        .tab-btn:hover {{ background-color: #24334d; color: #38bdf8; }}
-        .tab-btn.active {{ background-color: #38bdf8; color: #0f172a; border-color: #38bdf8; }}
+        * {{ box-sizing: border-box; }}
+        html {{ background: var(--bg); }}
+        body {{
+            background:
+                linear-gradient(var(--bg), var(--bg)),
+                repeating-linear-gradient(0deg, rgba(45,226,200,0.035) 0px, rgba(45,226,200,0.035) 1px, transparent 1px, transparent 28px),
+                repeating-linear-gradient(90deg, rgba(45,226,200,0.035) 0px, rgba(45,226,200,0.035) 1px, transparent 1px, transparent 28px);
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            padding: 20px 16px 60px;
+            margin: 0;
+            max-width: 1200px;
+            margin-inline: auto;
+        }}
+        .mono {{ font-family: 'IBM Plex Mono', monospace; }}
+
+        .header-container {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            padding: 14px 18px;
+            border-radius: 3px;
+            border-left: 3px solid var(--cyan);
+            margin-bottom: 20px;
+        }}
+        .timestamp-bar {{
+            display: flex;
+            gap: 20px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--muted);
+            background-color: var(--panel);
+            padding: 10px 15px;
+            border-radius: 3px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }}
+        .timestamp-bar span strong {{ color: var(--text); }}
+
+        .controls select {{
+            background-color: var(--panel-alt);
+            color: var(--cyan);
+            border: 1px solid var(--cyan);
+            padding: 6px 12px;
+            border-radius: 3px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+        }}
+        .controls select:hover {{ background-color: var(--border); }}
+
+        .tab-bar {{ display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }}
+        .tab-btn {{
+            background-color: var(--panel);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            padding: 10px 18px;
+            border-radius: 3px 3px 0 0;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        .tab-btn:hover {{ background-color: var(--panel-alt); color: var(--cyan); }}
+        .tab-btn.active {{ background-color: var(--cyan); color: var(--bg); border-color: var(--cyan); }}
         .tab-content {{ display: none; }}
         .tab-content.active {{ display: block; }}
-        
+
         .toggle-btn {{
-            background-color: #1e293b; color: #38bdf8; border: 1px solid #38bdf8;
-            padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: bold;
+            background-color: var(--panel-alt); color: var(--cyan); border: 1px solid var(--cyan);
+            padding: 6px 14px; border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; font-weight: 600;
             cursor: pointer; transition: background-color 0.2s; margin-top: 10px; display: inline-block;
         }}
-        .toggle-btn:hover {{ background-color: #334155; }}
+        .toggle-btn:hover {{ background-color: var(--border); }}
 
-        .info-card {{ background-color: #1e293b; border-left: 4px solid #38bdf8; padding: 15px 20px; margin-top: 15px; border-radius: 0 8px 8px 0; font-size: 0.9rem; line-height: 1.5; display: none; }}
+        .section-header {{
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 25px 0 12px;
+            padding: 6px 0 6px 14px;
+            cursor: pointer;
+            user-select: none;
+        }}
+        .section-header::before {{
+            content: "";
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 8px;
+            border-left: 2px solid var(--cyan);
+            border-top: 2px solid var(--cyan);
+            border-bottom: 2px solid var(--cyan);
+        }}
+        .section-header h2 {{ color: var(--text); font-size: 1.15rem; font-weight: 600; letter-spacing: 0.05em; margin: 0; }}
+        .toggle-hint {{ color: var(--cyan); font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: normal; margin-left: 10px; }}
+
+        .info-card {{
+            background-color: var(--panel);
+            border-left: 3px solid var(--violet);
+            padding: 15px 20px;
+            margin-top: 10px;
+            border-radius: 3px;
+            font-size: 0.95rem;
+            display: none;
+            border: 1px solid var(--border);
+        }}
         .info-card.always-visible {{ display: block !important; }}
         .info-card ul {{ margin: 5px 0 0 0; padding-left: 20px; }}
         .info-card li {{ margin-bottom: 4px; }}
         
         .info-card.spacious-card {{ padding: 20px 25px; font-size: 0.95rem; }}
         .feature-list {{ list-style: none; padding-left: 0; margin-top: 15px; }}
-        .feature-item {{ margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #334155; }}
+        .feature-item {{ margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }}
         .feature-item:last-child {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
-        .feature-title {{ color: #38bdf8; font-size: 1.05rem; font-weight: bold; margin-bottom: 8px; display: block; }}
-        .feature-desc {{ color: #cbd5e1; line-height: 1.6; margin-left: 10px; }}
+        .feature-title {{ color: var(--cyan); font-size: 1.05rem; font-weight: bold; margin-bottom: 8px; display: block; }}
+        .feature-desc {{ color: var(--text); line-height: 1.6; margin-left: 10px; }}
         .formula-box {{
-            background-color: #0f172a; border-left: 3px solid #38bdf8; border-radius: 4px;
-            padding: 10px 15px; margin: 10px 0 5px 15px; font-size: 0.9rem;
+            background-color: var(--panel-alt); border-left: 3px solid var(--cyan); border-radius: 3px;
+            padding: 10px 15px; margin: 10px 0 5px 15px; font-size: 0.85rem; font-family: 'IBM Plex Mono', monospace;
         }}
-        .formula-box code {{ color: #facc15; font-family: monospace; font-size: 0.9rem; }}
+        .formula-box code {{ color: var(--amber); }}
 
-        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #1e293b; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }}
-        th {{ background-color: #334155; color: #38bdf8; text-align: left; padding: 12px 14px; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; user-select: none; white-space: nowrap; }}
-        th:hover {{ background-color: #475569; }}
-        th::after {{ content: ' ↕'; font-size: 0.75rem; color: #64748b; }}
-        td {{ padding: 10px 14px; border-bottom: 1px solid #334155; font-size: 0.92rem; white-space: nowrap; }}
-        tr:hover {{ background-color: #24334d; }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }}
+        th {{
+            background-color: var(--panel-alt);
+            color: var(--muted);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }}
+        th:hover {{ background-color: var(--border); }}
+        th::after {{ content: ' ↕'; font-size: 0.7rem; color: var(--muted); }}
+        td {{ padding: 10px 12px; border-bottom: 1px solid var(--border); font-family: 'Rajdhani', sans-serif; font-weight: 500; white-space: nowrap; }}
+        tr:hover {{ background: var(--panel-alt); }}
 
         td.col-role-verdict, th.col-role-verdict {{ min-width: 190px; width: 210px; }}
         td.col-tactical-flags, th.col-tactical-flags {{ min-width: 220px; }}
         
-        .player-clickable {{ color: #38bdf8; font-weight: bold; cursor: pointer; text-decoration: underline; }}
-        .player-clickable:hover {{ color: #7dd3fc; }}
+        .player-clickable {{ color: var(--cyan); font-weight: 700; cursor: pointer; text-decoration: none; }}
+        .player-clickable:hover {{ color: #5effe8; text-decoration: underline; }}
 
-        .matchup-easy {{ color: #4ade80; font-weight: bold; }}
-        .matchup-neutral {{ color: #facc15; font-weight: bold; }}
-        .matchup-tough {{ color: #f87171; font-weight: bold; }}
+        .matchup-easy {{ color: var(--cyan); font-weight: bold; }}
+        .matchup-neutral {{ color: var(--amber); font-weight: bold; }}
+        .matchup-tough {{ color: var(--magenta); font-weight: bold; }}
 
-        .verdict-badge {{ position: relative; display: inline-block; cursor: help; border-bottom: 1px dashed #64748b; white-space: nowrap; }}
+        .badge {{
+            display: inline-block;
+            padding: 2px 8px;
+            border: 1px solid currentColor;
+            border-radius: 2px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 500;
+        }}
+        .injury-badge-out {{ color: var(--magenta); border-color: var(--magenta); background: rgba(255, 61, 129, 0.1); }}
+        .injury-badge-q {{ color: var(--amber); border-color: var(--amber); background: rgba(255, 176, 32, 0.1); }}
+
+        /* Boxed Verdict Styling without Emojis */
+        .verdict-box {{
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.70rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            border: 1px solid currentColor;
+            white-space: nowrap;
+        }}
+        .verdict-core, .verdict-surging {{ color: var(--violet); border-color: var(--violet); background: rgba(138, 125, 255, 0.12); }}
+        .verdict-drop {{ color: var(--magenta); border-color: var(--magenta); background: rgba(255, 61, 129, 0.12); }}
+        .verdict-hold, .verdict-buy-low {{ color: var(--muted); border-color: var(--border); background: var(--panel-alt); }}
+
+        .badge-stat-amber {{
+            color: var(--amber) !important;
+            border-color: var(--amber) !important;
+            background: rgba(255, 176, 32, 0.1) !important;
+        }}
+
+        .verdict-badge {{ position: relative; display: inline-block; cursor: help; white-space: nowrap; }}
         .verdict-badge .tooltiptext {{
-            visibility: hidden; width: 260px; background-color: #0f172a; color: #f8fafc;
-            text-align: left; border: 1px solid #38bdf8; border-radius: 6px; padding: 8px 12px;
+            visibility: hidden; width: 260px; background-color: var(--bg); color: var(--text);
+            text-align: left; border: 1px solid var(--cyan); border-radius: 3px; padding: 8px 12px;
             position: absolute; z-index: 100; left: 50%; margin-left: -130px;
-            opacity: 0; transition: opacity 0.2s; font-size: 0.8rem; font-weight: normal; line-height: 1.3;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: normal;
+            opacity: 0; transition: opacity 0.2s; font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; font-weight: normal; line-height: 1.3;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8); white-space: normal;
         }}
         .verdict-badge:hover .tooltiptext {{ visibility: visible; opacity: 1; }}
 
         .modal-overlay {{
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(4px);
+            background: rgba(6, 10, 16, 0.88); backdrop-filter: blur(4px);
             justify-content: center; align-items: center; z-index: 1000;
         }}
         .modal-card {{
-            background: #1e293b; border: 1px solid #38bdf8; border-radius: 10px; padding: 25px;
-            width: 90%; max-width: 900px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative;
+            background: var(--panel); border: 1px solid var(--cyan); border-radius: 3px; padding: 25px;
+            width: 90%; max-width: 900px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.8); position: relative;
         }}
         .close-btn {{
-            position: absolute; top: 15px; right: 20px; color: #94a3b8; font-size: 1.5rem;
+            position: absolute; top: 15px; right: 20px; color: var(--muted); font-size: 1.5rem;
             cursor: pointer; font-weight: bold;
         }}
-        .close-btn:hover {{ color: #f8fafc; }}
+        .close-btn:hover {{ color: var(--text); }}
 
         .modal-stat-pill {{
-            display: inline-block; background-color: #0f172a; border: 1px solid #38bdf8;
-            color: #38bdf8; font-weight: bold; padding: 3px 8px; border-radius: 4px; margin-right: 8px; font-size: 0.85rem;
+            display: inline-block; background-color: var(--panel-alt); border: 1px solid var(--cyan);
+            color: var(--cyan); font-family: 'IBM Plex Mono', monospace; font-weight: bold; padding: 3px 8px; border-radius: 2px; margin-right: 8px; font-size: 0.78rem;
         }}
 
-        tr.active-window-row {{ background-color: #1e3a8a !important; border-left: 4px solid #38bdf8; }}
-        tr.active-window-row td {{ color: #ffffff; font-weight: 500; }}
-        .active-window-badge {{ background-color: #38bdf8; color: #0f172a; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }}
-
-        .injury-badge-out {{ background-color: #ef4444; color: #ffffff; font-size: 0.7rem; font-weight: bold; padding: 2px 5px; border-radius: 4px; margin-left: 6px; }}
-        .injury-badge-q {{ background-color: #f59e0b; color: #0f172a; font-size: 0.7rem; font-weight: bold; padding: 2px 5px; border-radius: 4px; margin-left: 6px; }}
+        tr.active-window-row {{ background-color: rgba(45, 226, 200, 0.08) !important; border-left: 3px solid var(--cyan); }}
+        tr.active-window-row td {{ color: #ffffff; font-weight: 600; }}
+        .active-window-badge {{ background-color: var(--cyan); color: var(--bg); font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; font-weight: bold; padding: 2px 6px; border-radius: 2px; margin-left: 6px; }}
 
         @media screen and (max-width: 768px) {{
             body {{ padding: 12px; }}
@@ -597,11 +747,21 @@ html_content = f"""
 
     <div class="header-container">
         <div>
-            <h1>🌌 Fandromeda Engine</h1>
-            <div style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">Fantasy Football Analytics & Waiver Intelligence Hub</div>
+            <h1 style="font-family: 'Rajdhani', sans-serif; font-weight: 700; letter-spacing: 0.05em; color: #dbe7f0; font-size: 2.2rem; line-height: 1; margin: 0; display: flex; align-items: baseline;">
+                <svg width="32" height="18" viewBox="0 0 32 18" style="display: inline-block; margin-right: 2px; vertical-align: baseline; transform: translateY(-1px);">
+                    <!-- Bar 1: Cyan (Height: 6px) -->
+                    <rect x="0" y="12" width="8" height="6" rx="1" fill="var(--cyan)" />
+                    <!-- Bar 2: Violet (Height: 12px) -->
+                    <rect x="12" y="6" width="8" height="12" rx="1" fill="var(--violet)" />
+                    <!-- Bar 3: Magenta (Height: 18px) -->
+                    <rect x="24" y="0" width="8" height="18" rx="1" fill="var(--magenta)" />
+                </svg>
+                <span>FANDROMEDA</span>
+            </h1>
+            <div style="color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; margin-top: 8px;">Analytics Engine & Waiver Intelligence Hub</div>
         </div>
         <div class="controls">
-            <label for="teamSelect" style="color: #94a3b8; font-weight: bold; font-size: 0.95rem;">Active Team Target:</label>
+            <label for="teamSelect" style="color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem;">Active Target:</label>
             <select id="teamSelect" onchange="filterTeamData()">
                 {team_options_html}
             </select>
@@ -609,8 +769,8 @@ html_content = f"""
     </div>
 
     <div class="timestamp-bar">
-        <span>📄 <strong>Yahoo Rosters Updated:</strong> {yahoo_last_updated}</span>
-        <span>☁️ <strong>NFLVerse Data Fetched:</strong> {nfl_last_updated}</span>
+        <span>📄 <strong>Yahoo Rosters:</strong> {yahoo_last_updated}</span>
+        <span>☁️ <strong>nflverse Sync:</strong> {nfl_last_updated}</span>
     </div>
 
     <!-- TAB NAVIGATION BAR -->
@@ -628,7 +788,7 @@ html_content = f"""
         <div class="info-card" id="squadCard">
             <strong>Squad Evaluation Architecture (Role Verdict + Tactical Flags):</strong>
             <ul>
-                <li><strong>Role Verdict:</strong> Primary status column (<code>🔥 CORE STARTER</code>, <code>📈 SURGING ROLE</code>, <code>🚨 BUY LOW HOLD</code>, <code>✂️ DROP CANDIDATE</code>, <code>👀 HOLD</code>).</li>
+                <li><strong>Role Verdict:</strong> Primary status column (<code>CORE STARTER</code>, <code>SURGING ROLE</code>, <code>BUY LOW HOLD</code>, <code>DROP CANDIDATE</code>, <code>HOLD</code>).</li>
                 <li><strong>Dynamic Tactical Hover:</strong> Hovering over flags reveals exact underlying stats (e.g., Snap Share, Air Yds, Red Zone Opps).</li>
                 <li><strong>Modal Game Logs:</strong> Click any player name to view their 3-week stat averages and full game log.</li>
             </ul>
@@ -654,7 +814,7 @@ html_content = f"""
         <div class="section-header" onclick="toggleCard('waiverCard', 'waiverHint')">
             <h2>🔥 Unclaimed Waiver Wire (Ranked by Opportunity Surge) <span class="toggle-hint" id="waiverHint">[+ Click to expand definitions]</span></h2>
             <div class="controls" onclick="event.stopPropagation();">
-                <label for="posSelect" style="color: #94a3b8; font-weight: bold; font-size: 0.9rem;">Filter Position:</label>
+                <label for="posSelect" style="color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem;">Pos Filter:</label>
                 <select id="posSelect" onchange="filterWaiverData()">
                     <option value="ALL" selected>All Positions</option>
                     <option value="RB">RB Only</option>
@@ -668,14 +828,14 @@ html_content = f"""
             <strong>Waiver Wire Evaluation Architecture:</strong>
             <ul>
                 <li><strong>Role Verdict:</strong> Priority classification for unowned assets.</li>
-                <li><strong>Tactical Flags:</strong> Actionable overlay tags including <code>⏱️ HIGH SNAP BUY-LOW</code>, <code>🎯 RED ZONE BUY-LOW</code>, and <code>🚨 AIR YARD BUY-LOW</code>.</li>
+                <li><strong>Tactical Flags:</strong> Actionable overlay tags including <code>HIGH SNAP BUY-LOW</code>, <code>RED ZONE BUY-LOW</code>, and <code>AIR YARD BUY-LOW</code>.</li>
             </ul>
         </div>
         <div id="waiverTableContainer"></div>
 
         <div class="section-header" onclick="toggleCard('tradeCard', 'tradeHint')">
             <h2>🎯 Rival Roster Trade Targets (High Opportunity / Low Output) <span class="toggle-hint" id="tradeHint">[+ Click to expand definitions]</span></h2>
-            <button class="toggle-btn" onclick="openTradeAnalyzerModal()" style="margin-left: 15px; background-color: #38bdf8; color: #0f172a;">⚖️ Open Trade Analyzer</button>
+            <button class="toggle-btn" onclick="openTradeAnalyzerModal()" style="margin-left: 15px; background-color: var(--cyan); color: var(--bg);">⚖️ Open Trade Analyzer</button>
         </div>
         <div class="info-card" id="tradeCard">
             <strong>Trade Targets Architecture:</strong>
@@ -695,7 +855,7 @@ html_content = f"""
             <h2>🛠️ Core Features & Mathematical Formulas</h2>
         </div>
         <div class="info-card always-visible spacious-card" id="engineFeaturesCard">
-            <strong style="font-size: 1.1rem; color: #f8fafc;">Active Features & Analytics Engine Breakdown:</strong>
+            <strong style="font-size: 1.1rem; color: var(--text);">Active Features & Analytics Engine Breakdown:</strong>
             <ul class="feature-list">
                 <li class="feature-item">
                     <span class="feature-title">🏈 Position Opportunity Score & WOPR Derivative</span>
@@ -735,7 +895,7 @@ html_content = f"""
                 </li>
                 <li class="feature-item">
                     <span class="feature-title">🏥 Depth Chart Rank & Official IR/Injury Tracking</span>
-                    <div class="feature-desc">Joins official nflreadpy depth chart hierarchies and practice status reports directly to player names, flagging backup volume increases (`⚠️ SHORT-TERM VOLUME`) or injury statuses (`OUT`, `Q`, `IR`).</div>
+                    <div class="feature-desc">Joins official nflreadpy depth chart hierarchies and practice status reports directly to player names, flagging backup volume increases (`SHORT-TERM VOLUME`) or injury statuses (`OUT`, `Q`, `IR`).</div>
                 </li>
                 <li class="feature-item">
                     <span class="feature-title">⚖️ Streamlined Trade Impact Analyzer</span>
@@ -749,8 +909,8 @@ html_content = f"""
     <div id="playerModal" class="modal-overlay">
         <div class="modal-card">
             <span class="close-btn" onclick="closeModal()">&times;</span>
-            <h2 id="modalPlayerName" style="color:#38bdf8; margin-top:0;">Player Details</h2>
-            <div id="modalSubhead" style="color:#94a3b8; font-size:0.9rem; margin-bottom: 15px;"></div>
+            <h2 id="modalPlayerName" style="color:var(--cyan); margin-top:0;">Player Details</h2>
+            <div id="modalSubhead" style="color:var(--muted); font-size:0.9rem; margin-bottom: 15px;"></div>
             <div id="modalTableContainer"></div>
         </div>
     </div>
@@ -759,17 +919,17 @@ html_content = f"""
     <div id="tradeAnalyzerModal" class="modal-overlay">
         <div class="modal-card" style="max-width: 700px;">
             <span class="close-btn" onclick="closeTradeAnalyzerModal()">&times;</span>
-            <h2 style="color:#38bdf8; margin-top:0;">⚖️ Trade Impact Analyzer</h2>
-            <p style="color:#94a3b8; font-size:0.85rem;">Select assets to calculate net Opportunity Score & PPR impact for multi-player trade proposals.</p>
+            <h2 style="color:var(--cyan); margin-top:0;">⚖️ Trade Impact Analyzer</h2>
+            <p style="color:var(--muted); font-size:0.85rem; font-family: 'IBM Plex Mono', monospace;">Select assets to calculate net Opportunity Score & PPR impact for multi-player trade proposals.</p>
             
             <div style="display: flex; gap: 20px; margin-top: 20px;">
-                <div style="flex: 1; background: #0f172a; padding: 15px; border-radius: 6px; border: 1px solid #334155;">
-                    <h3 style="color: #f87171; margin-top:0;">Giving Away (<span id="giveTeamLabel">My Roster</span>)</h3>
+                <div style="flex: 1; background: var(--panel-alt); padding: 15px; border-radius: 3px; border: 1px solid var(--border);">
+                    <h3 style="color: var(--magenta); margin-top:0;">Giving Away (<span id="giveTeamLabel">My Roster</span>)</h3>
                     <select id="givePlayer1" onchange="calculateTradeImpact()" style="width: 100%; margin-bottom: 10px;"><option value="">Select Player 1...</option></select>
                     <select id="givePlayer2" onchange="calculateTradeImpact()" style="width: 100%;"><option value="">Select Player 2 (Optional)...</option></select>
                 </div>
-                <div style="flex: 1; background: #0f172a; padding: 15px; border-radius: 6px; border: 1px solid #334155;">
-                    <h3 style="color: #4ade80; margin-top:0;">Receiving</h3>
+                <div style="flex: 1; background: var(--panel-alt); padding: 15px; border-radius: 3px; border: 1px solid var(--border);">
+                    <h3 style="color: var(--cyan); margin-top:0;">Receiving</h3>
                     <select id="receiveTeamSelect" onchange="populateReceivePlayers()" style="width: 100%; margin-bottom: 10px;">
                         <option value="ALL">Select Manager / Team...</option>
                     </select>
@@ -778,8 +938,8 @@ html_content = f"""
                 </div>
             </div>
 
-            <div id="tradeSummaryOutput" style="margin-top: 20px; padding: 15px; background: #0f172a; border-radius: 6px; text-align: center; border-left: 4px solid #38bdf8;">
-                <span style="color: #64748b;">Select players above to view net proposal impact.</span>
+            <div id="tradeSummaryOutput" style="margin-top: 20px; padding: 15px; background: var(--panel-alt); border-radius: 3px; text-align: center; border-left: 3px solid var(--cyan); font-family: 'IBM Plex Mono', monospace;">
+                <span style="color: var(--muted);">Select players above to view net proposal impact.</span>
             </div>
         </div>
     </div>
@@ -796,24 +956,24 @@ html_content = f"""
         let isTradeExpanded = false;
 
         const verdictTooltips = {{
-            '🚑 INJURED / OUT': 'Player listed as Out, Doubtful, or on IR.',
-            '⚠️ QUESTIONABLE': 'Player listed as Questionable on official NFL injury report.',
-            '⏱️ HIGH SNAP BUY-LOW': 'Averaging ≥75% snap share but low PPR output (<10.0 pts/gm). High opportunity buy-low target.',
-            '⚠️ SHORT-TERM VOLUME': 'Elevated workload resulting from starter injury/IR.',
-            '🚨 AIR YARD BUY-LOW': 'High downfield target volume (≥65 Unrealized Air Yds/gm) but low PPR points (<11.0).',
-            '🎯 RED ZONE BUY-LOW': 'High red-zone opportunity index (≥2.5) with low touchdown output (≤1 TD over trailing 3 games).',
-            '🔥 CORE STARTER': 'Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0).',
-            '🚨 BUY LOW HOLD': 'High opportunity (Opp ≥ 0.40) & target floor but low output (PPR < 11.0).',
-            '📈 SURGING ROLE': 'Workload velocity growing rapidly (Surge ≥ 0.100).',
-            '⚠️ FLUKE RISK': 'Scoring fantasy points on weak volume (<8 touches/gm & Opp < 0.22).',
-            '✂️ DROP CANDIDATE': 'Weak volume (Opp < 0.20) and poor fantasy output (PPR < 8.0).',
-            '👀 HOLD': 'Stable positional role without immediate breakout or drop signals.',
-            '🚨 BUY LOW / TARGET': 'High opportunity (Opp ≥ 0.45) & target floor with weak fantasy points (PPR < 10.0).',
-            '🔥 HIGH-VOLUME ALPHA': 'Unowned player producing elite volume (Opp ≥ 0.45) and strong PPR points (PPR ≥ 13.0).',
-            '📈 SURGING WORKLOAD': 'Workload velocity jumping rapidly over the past 3 weeks (Surge ≥ 0.100).',
-            '⚠️ SELL HIGH / FLUKE': 'Points scored without underlying volume (<8 touches/gm).',
-            '👀 STASH': 'Low volume/points currently, but worth monitoring for deep bench storage.',
-            '🚨 BUY LOW / TRADE TARGET': 'Target rostered players with significant workload (Opp ≥ 0.40) who are underperforming on points.'
+            'INJURED / OUT': 'Player listed as Out, Doubtful, or on IR.',
+            'QUESTIONABLE': 'Player listed as Questionable on official NFL injury report.',
+            'HIGH SNAP BUY-LOW': 'Averaging ≥75% snap share but low PPR output (<10.0 pts/gm). High opportunity buy-low target.',
+            'SHORT-TERM VOLUME': 'Elevated workload resulting from starter injury/IR.',
+            'AIR YARD BUY-LOW': 'High downfield target volume (≥65 Unrealized Air Yds/gm) but low PPR points (<11.0).',
+            'RED ZONE BUY-LOW': 'High red-zone opportunity index (≥2.5) with low touchdown output (≤1 TD over trailing 3 games).',
+            'CORE STARTER': 'Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0).',
+            'BUY LOW HOLD': 'High opportunity (Opp ≥ 0.40) & target floor but low output (PPR < 11.0).',
+            'SURGING ROLE': 'Workload velocity growing rapidly (Surge ≥ 0.100).',
+            'FLUKE RISK': 'Scoring fantasy points on weak volume (<8 touches/gm & Opp < 0.22).',
+            'DROP CANDIDATE': 'Weak volume (Opp < 0.20) and poor fantasy output (PPR < 8.0).',
+            'HOLD': 'Stable positional role without immediate breakout or drop signals.',
+            'BUY LOW / TARGET': 'High opportunity (Opp ≥ 0.45) & target floor with weak fantasy points (PPR < 10.0).',
+            'HIGH-VOLUME ALPHA': 'Unowned player producing elite volume (Opp ≥ 0.45) and strong PPR points (PPR ≥ 13.0).',
+            'SURGING WORKLOAD': 'Workload velocity jumping rapidly over the past 3 weeks (Surge ≥ 0.100).',
+            'SELL HIGH / FLUKE': 'Points scored without underlying volume (<8 touches/gm).',
+            'STASH': 'Low volume/points currently, but worth monitoring for deep bench storage.',
+            'BUY LOW / TRADE TARGET': 'Target rostered players with significant workload (Opp ≥ 0.40) who are underperforming on points.'
         }};
 
         function switchTab(tabId, btn) {{
@@ -825,7 +985,7 @@ html_content = f"""
 
         function generateSparklineSVG(cleanName, rowIndex, width = 85, height = 22) {{
             const playerGames = granularData.filter(g => g.clean_name === cleanName && g.game_rn <= 4);
-            if (!playerGames || playerGames.length < 2) return '<span style="color:#64748b;">—</span>';
+            if (!playerGames || playerGames.length < 2) return '<span style="color:var(--muted);">—</span>';
             
             const scores = playerGames.map(g => g.ppr_pts);
             const min = Math.min(...scores, 0);
@@ -840,13 +1000,13 @@ html_content = f"""
             
             const lastPoint = points.split(' ').pop().split(',');
             const isUpTrend = scores[scores.length - 1] >= scores[0];
-            const strokeColor = isUpTrend ? '#38bdf8' : '#f43f5e';
+            const strokeColor = isUpTrend ? '#2de2c8' : '#ff3d81';
 
             const tooltipText = `PPR Trend (Last ${{scores.length}} Active Games): ` + scores.join(' ➔ ');
             const popDirection = rowIndex === 0 ? 'top: 125%;' : 'bottom: 125%;';
 
             return `
-                <div class="verdict-badge" style="border-bottom: none;">
+                <div class="verdict-badge">
                     <svg width="${{width}}" height="${{height}}" style="vertical-align: middle; overflow: visible;">
                         <polyline fill="none" stroke="${{strokeColor}}" stroke-width="2" points="${{points}}" />
                         <circle cx="${{lastPoint[0]}}" cy="${{lastPoint[1]}}" r="3" fill="${{strokeColor}}" />
@@ -959,8 +1119,8 @@ html_content = f"""
             const totalGetPPR = (parseFloat(get1['PPR Avg']) || 0) + (parseFloat(get2['PPR Avg']) || 0);
             const netPPR = (totalGetPPR - totalGivePPR).toFixed(1);
 
-            const oppColor = netOpp >= 0 ? '#4ade80' : '#f87171';
-            const pprColor = netPPR >= 0 ? '#4ade80' : '#f87171';
+            const oppColor = netOpp >= 0 ? 'var(--cyan)' : 'var(--magenta)';
+            const pprColor = netPPR >= 0 ? 'var(--cyan)' : 'var(--magenta)';
 
             document.getElementById('tradeSummaryOutput').innerHTML = `
                 <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 5px;">
@@ -1003,7 +1163,7 @@ html_content = f"""
 
         function renderSOSTable(squadData) {{
             if (squadData.length === 0) {{
-                document.getElementById('sosTableContainer').innerHTML = '<p style="color:#64748b; padding:15px;">No players available.</p>';
+                document.getElementById('sosTableContainer').innerHTML = '<p style="color:var(--muted); padding:15px;">No players available.</p>';
                 return;
             }}
 
@@ -1035,7 +1195,7 @@ html_content = f"""
                             }}
 
                             if (matchupStr.includes('💨') || matchupStr.includes('🥶') || matchupStr.includes('🔥')) {{
-                                nextWkRatingBadge += ' <span style="font-size:0.85rem; color:#38bdf8;">⚠️ Weather Alert</span>';
+                                nextWkRatingBadge += ' <span style="font-size:0.85rem; color:var(--cyan);">⚠️ Weather Alert</span>';
                             }}
                         }}
 
@@ -1047,16 +1207,16 @@ html_content = f"""
 
                 let injuryBadge = '';
                 if (['Out', 'IR', 'Doubtful'].includes(p.injury_status)) {{
-                    injuryBadge = '<span class="injury-badge-out">OUT</span>';
+                    injuryBadge = '<span class="badge injury-badge-out">OUT</span>';
                 }} else if (p.injury_status === 'Questionable') {{
-                    injuryBadge = '<span class="injury-badge-q">Q</span>';
+                    injuryBadge = '<span class="badge injury-badge-q">Q</span>';
                 }}
 
                 html += `<tr>
                     <td>${{p.Slot}}</td>
-                    <td><span class="player-clickable" onclick="openPlayerModal('${{p.clean_name}}', '${{p.Player}}')">${{p.Player}}</span>${{injuryBadge}}</td>
-                    <td>${{p.Pos}}</td>
-                    <td>${{p.Team}}</td>
+                    <td><span class="player-clickable" onclick="openPlayerModal('${{p.clean_name}}', '${{p.Player}}')">${{p.Player}}</span> ${{injuryBadge}}</td>
+                    <td class="mono">${{p.Pos}}</td>
+                    <td class="mono">${{p.Team}}</td>
                     <td>${{nextWkRatingBadge}}</td>
                     ${{weeklyTds}}
                 </tr>`;
@@ -1079,7 +1239,7 @@ html_content = f"""
 
         function renderTable(containerId, data, columns) {{
             if (data.length === 0) {{
-                document.getElementById(containerId).innerHTML = '<p style="color:#64748b; padding:15px;">No players match this criteria.</p>';
+                document.getElementById(containerId).innerHTML = '<p style="color:var(--muted); padding:15px;">No players match this criteria.</p>';
                 return;
             }}
             let html = '<table class="sortable"><thead><tr>';
@@ -1098,40 +1258,50 @@ html_content = f"""
                     if (col === 'Player') {{
                         let injuryBadge = '';
                         if (['Out', 'IR', 'Doubtful'].includes(row.injury_status)) {{
-                            injuryBadge = '<span class="injury-badge-out">OUT</span>';
+                            injuryBadge = '<span class="badge injury-badge-out">OUT</span>';
                         }} else if (row.injury_status === 'Questionable') {{
-                            injuryBadge = '<span class="injury-badge-q">Q</span>';
+                            injuryBadge = '<span class="badge injury-badge-q">Q</span>';
                         }}
-                        html += `<td><span class="player-clickable" onclick="openPlayerModal('${{row.clean_name}}', '${{row.Player}}')">${{val}}</span>${{injuryBadge}}</td>`;
+                        html += `<td><span class="player-clickable" onclick="openPlayerModal('${{row.clean_name}}', '${{row.Player}}')">${{val}}</span> ${{injuryBadge}}</td>`;
+                    }} else if (col === 'Pos' || col === 'Team' || col === 'Slot') {{
+                        html += `<td class="mono">${{val}}</td>`;
                     }} else if (col === 'Trend (PPR)') {{
                         html += `<td>${{generateSparklineSVG(row.clean_name, rowIndex)}}</td>`;
                     }} else if (col === 'Role Verdict') {{
-                        const desc = verdictTooltips[val] || 'Baseline player status classification.';
+                        let boxClass = 'verdict-hold';
+                        if (val.includes('CORE STARTER') || val.includes('SURGING') || val.includes('ALPHA')) boxClass = 'verdict-core';
+                        else if (val.includes('DROP CANDIDATE')) boxClass = 'verdict-drop';
+                        else if (val.includes('BUY LOW')) boxClass = 'verdict-buy-low';
+
+                        const desc = verdictTooltips[val] || 'Baseline status classification.';
                         const popDirection = rowIndex === 0 ? 'top: 125%;' : 'bottom: 125%;';
-                        html += `<td class="col-role-verdict"><div class="verdict-badge">${{val}}<span class="tooltiptext" style="${{popDirection}}">${{desc}}</span></div></td>`;
+                        
+                        html += `<td class="col-role-verdict"><div class="verdict-badge"><span class="verdict-box ${{boxClass}}">${{val}}</span><span class="tooltiptext" style="${{popDirection}}">${{desc}}</span></div></td>`;
                     }} else if (col === 'Tactical Flags') {{
                         if (val === '—') {{
-                            html += `<td class="col-tactical-flags" style="color:#64748b;">—</td>`;
+                            html += `<td class="col-tactical-flags" style="color:var(--muted);">—</td>`;
                         }} else {{
                             const tags = val.split(' | ');
                             let badgeHtml = tags.map(tag => {{
-                                let desc = verdictTooltips[tag] || 'Actionable tactical consideration.';
-                                
-                                if (tag === '⏱️ HIGH SNAP BUY-LOW' && row.snap_val !== undefined) {{
+                                let desc = verdictTooltips[tag] || 'Tactical flag.';
+                                let isStatFlag = tag.includes('HIGH SNAP') || tag.includes('AIR YARD') || tag.includes('RED ZONE');
+                                let badgeClass = isStatFlag ? 'badge-stat-amber' : '';
+
+                                if (tag === 'HIGH SNAP BUY-LOW' && row.snap_val !== undefined) {{
                                     desc += ' [3-Wk Snap Share: ' + row.snap_val + '%]';
-                                }} else if (tag === '🚨 AIR YARD BUY-LOW' && row.air_yds_val !== undefined) {{
+                                }} else if (tag === 'AIR YARD BUY-LOW' && row.air_yds_val !== undefined) {{
                                     desc += ' [3-Wk Air Yds Avg: ' + row.air_yds_val + ' yds/gm]';
-                                }} else if (tag === '🎯 RED ZONE BUY-LOW' && row.rz_opp_val !== undefined) {{
+                                }} else if (tag === 'RED ZONE BUY-LOW' && row.rz_opp_val !== undefined) {{
                                     desc += ' [3-Wk RZ Opp Index: ' + row.rz_opp_val + ']';
                                 }}
 
                                 const popDirection = rowIndex === 0 ? 'top: 125%;' : 'bottom: 125%;';
-                                return `<div class="verdict-badge" style="margin-right: 4px;">${{tag}}<span class="tooltiptext" style="${{popDirection}}">${{desc}}</span></div>`;
-                            }}).join(' | ');
+                                return `<div class="verdict-badge" style="margin-right: 4px;"><span class="badge ${{badgeClass}}">${{tag}}</span><span class="tooltiptext" style="${{popDirection}}">${{desc}}</span></div>`;
+                            }}).join(' ');
                             html += `<td class="col-tactical-flags">${{badgeHtml}}</td>`;
                         }}
                     }} else {{
-                        html += `<td>${{val}}</td>`;
+                        html += `<td class="mono">${{val}}</td>`;
                     }}
                 }});
                 html += '</tr>';
@@ -1172,7 +1342,7 @@ html_content = f"""
 
                 document.getElementById('modalSubhead').innerHTML = `
                     Position: <strong>${{playerGames[0].position}}</strong> | 
-                    <span style="color:#38bdf8;">Blue rows indicate active 3-week heuristic window</span>
+                    <span style="color:var(--cyan);">Active 3-week heuristic window highlighted below</span>
                     ${{statBadgesHtml}}
                 `;
                 
@@ -1183,19 +1353,19 @@ html_content = f"""
                     const activeBadge = isActiveWindow ? '<span class="active-window-badge">★ Active Window</span>' : '';
 
                     html += `<tr ${{rowClass}}>
-                        <td>${{g.season}}</td>
-                        <td>Week ${{g.week}}${{activeBadge}}</td>
-                        <td><strong>${{g.snap_pct}}%</strong></td>
-                        <td>${{g.targets}}</td>
-                        <td>${{g.carries}}</td>
-                        <td>${{g.pass_attempts}}</td>
-                        <td>${{(g.tgt_share * 100).toFixed(1)}}%</td>
-                        <td>${{(g.ay_share * 100).toFixed(1)}}%</td>
-                        <td><strong>${{g.unrealized_ay}}</strong></td>
-                        <td><strong>${{g.rz_opp}}</strong></td>
-                        <td><strong>${{g.total_tds}}</strong></td>
-                        <td><strong>${{g.opp_score}}</strong></td>
-                        <td><strong>${{g.ppr_pts}}</strong></td>
+                        <td class="mono">${{g.season}}</td>
+                        <td class="mono">W${{g.week}}${{activeBadge}}</td>
+                        <td class="mono"><strong>${{g.snap_pct}}%</strong></td>
+                        <td class="mono">${{g.targets}}</td>
+                        <td class="mono">${{g.carries}}</td>
+                        <td class="mono">${{g.pass_attempts}}</td>
+                        <td class="mono">${{(g.tgt_share * 100).toFixed(1)}}%</td>
+                        <td class="mono">${{(g.ay_share * 100).toFixed(1)}}%</td>
+                        <td class="mono"><strong>${{g.unrealized_ay}}</strong></td>
+                        <td class="mono"><strong>${{g.rz_opp}}</strong></td>
+                        <td class="mono"><strong>${{g.total_tds}}</strong></td>
+                        <td class="mono"><strong>${{g.opp_score}}</strong></td>
+                        <td class="mono"><strong>${{g.ppr_pts}}</strong></td>
                     </tr>`;
                 }});
                 html += '</tbody></table>';
@@ -1253,8 +1423,8 @@ with open(output_file, "w", encoding="utf-8") as f:
   f.write(html_content)
 
 print(
-    "✅ Fandromeda Dashboard updated successfully with Snap Count tracking:"
-    f" '{output_file}'"
+    "✅ Fandromeda Dashboard updated successfully with boxed verdicts & stat"
+    f" tags: '{output_file}'"
 )
 
 if not os.getenv("GITHUB_ACTIONS"):
