@@ -17,34 +17,42 @@ df_rosters = pd.read_csv("all_league_rosters.csv")
 
 # Load Depth Charts and Injury Data
 try:
-    df_depth = nfl.load_depth_charts([2026]).to_pandas()
+  df_depth = nfl.load_depth_charts([2026]).to_pandas()
 except Exception:
-    df_depth = pd.DataFrame(
-        columns=["club_code", "full_name", "depth_team", "position"]
-    )
+  df_depth = pd.DataFrame(
+      columns=["club_code", "full_name", "depth_team", "position"]
+  )
 
 try:
-    df_injuries = nfl.load_injuries([2026]).to_pandas()
+  df_injuries = nfl.load_injuries([2026]).to_pandas()
 except Exception:
-    df_injuries = pd.DataFrame(
-        columns=["team", "full_name", "report_status", "practice_status"]
-    )
+  df_injuries = pd.DataFrame(
+      columns=["team", "full_name", "report_status", "practice_status"]
+  )
+
+# Load Snap Counts
+try:
+  df_snaps = nfl.load_snap_counts([2026]).to_pandas()
+except Exception:
+  df_snaps = pd.DataFrame(
+      columns=["player", "pfr_player_id", "season", "week", "offense_pct"]
+  )
 
 # Load Schedules for SOS and Weather
 try:
-    df_schedules = nfl.load_schedules([2026]).to_pandas()
+  df_schedules = nfl.load_schedules([2026]).to_pandas()
 except Exception:
-    df_schedules = pd.DataFrame(
-        columns=[
-            "season",
-            "week",
-            "home_team",
-            "away_team",
-            "roof",
-            "temp",
-            "wind",
-        ]
-    )
+  df_schedules = pd.DataFrame(
+      columns=[
+          "season",
+          "week",
+          "home_team",
+          "away_team",
+          "roof",
+          "temp",
+          "wind",
+      ]
+  )
 
 # 2. Timestamps
 csv_path = "all_league_rosters.csv"
@@ -55,22 +63,15 @@ yahoo_last_updated = datetime.fromtimestamp(csv_mtime).strftime(
 nfl_last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-# 3. Name Cleaning Routine
+# 3. Optimized Name Cleaning Routine
 def clean_name(name):
-    if not isinstance(name, str):
-        return name
-    suffixes = [
-        r"\bJr\.?$",
-        r"\bSr\.?$",
-        r"\bIII$",
-        r"\bII$",
-        r"\bIV$",
-        r"\bV$",
-    ]
-    cleaned = name.strip()
-    for s in suffixes:
-        cleaned = pd.Series(cleaned).str.replace(s, "", regex=True).iloc[0]
-    return cleaned.strip()
+  if not isinstance(name, str):
+    return name
+  import re
+
+  suffixes = r"\b(Jr|Sr|III|II|IV|V)\.?$"
+  cleaned = re.sub(suffixes, "", name.strip(), flags=re.IGNORECASE)
+  return cleaned.strip()
 
 
 df_rosters["clean_name"] = df_rosters["player_name"].apply(clean_name)
@@ -85,26 +86,42 @@ df_injuries["clean_name"] = (
     if "full_name" in df_injuries.columns
     else ""
 )
+df_snaps["clean_name"] = (
+    df_snaps["player"].apply(clean_name) if "player" in df_snaps.columns else ""
+)
+
+# Merge Snap Counts into Main Stats DataFrame
+if not df_snaps.empty and "offense_pct" in df_snaps.columns:
+  df_snaps_clean = (
+      df_snaps[df_snaps["season"] == 2026]
+      .groupby(["clean_name", "week"])["offense_pct"]
+      .mean()
+      .reset_index()
+  )
+  df_nfl = df_nfl.merge(df_snaps_clean, on=["clean_name", "week"], how="left")
+  df_nfl["snap_pct"] = df_nfl["offense_pct"].fillna(0.0)
+else:
+  df_nfl["snap_pct"] = 0.0
 
 # Depth & Injury Clean
 if not df_depth.empty and "depth_team" in df_depth.columns:
-    df_depth_clean = (
-        df_depth.sort_values("depth_team")
-        .groupby("clean_name")
-        .first()
-        .reset_index()[["clean_name", "depth_team"]]
-    )
+  df_depth_clean = (
+      df_depth.sort_values("depth_team")
+      .groupby("clean_name")
+      .first()
+      .reset_index()[["clean_name", "depth_team"]]
+  )
 else:
-    df_depth_clean = pd.DataFrame(columns=["clean_name", "depth_team"])
+  df_depth_clean = pd.DataFrame(columns=["clean_name", "depth_team"])
 
 if not df_injuries.empty and "report_status" in df_injuries.columns:
-    df_injuries_clean = (
-        df_injuries.groupby("clean_name")
-        .first()
-        .reset_index()[["clean_name", "report_status"]]
-    )
+  df_injuries_clean = (
+      df_injuries.groupby("clean_name")
+      .first()
+      .reset_index()[["clean_name", "report_status"]]
+  )
 else:
-    df_injuries_clean = pd.DataFrame(columns=["clean_name", "report_status"])
+  df_injuries_clean = pd.DataFrame(columns=["clean_name", "report_status"])
 
 # Filter Valid Positions
 valid_positions = ["WR", "TE", "RB", "QB"]
@@ -125,29 +142,28 @@ cols_to_fill = [
     "rushing_tds",
     "receiving_tds",
     "passing_tds",
+    "snap_pct",
 ]
 for col in cols_to_fill:
-    if col in df_nfl.columns:
-        df_nfl[col] = df_nfl[col].fillna(0.0)
-    else:
-        df_nfl[col] = 0.0
+  if col in df_nfl.columns:
+    df_nfl[col] = df_nfl[col].fillna(0.0)
+  else:
+    df_nfl[col] = 0.0
 
 df_nfl["total_tds"] = df_nfl["rushing_tds"] + df_nfl["receiving_tds"]
 
 # 4. Target Air Yards & Unrealized Air Yards Calculation
 if "receiving_air_yards" in df_nfl.columns:
-    df_nfl["target_air_yards"] = (
-        df_nfl["receiving_air_yards"]
-        .fillna(df_nfl["air_yards"])
-        .fillna(0.0)
-    )
+  df_nfl["target_air_yards"] = (
+      df_nfl["receiving_air_yards"].fillna(df_nfl["air_yards"]).fillna(0.0)
+  )
 else:
-    df_nfl["target_air_yards"] = df_nfl["air_yards"].fillna(0.0)
+  df_nfl["target_air_yards"] = df_nfl["air_yards"].fillna(0.0)
 
 if "receiving_yards" in df_nfl.columns:
-    df_nfl["receiving_yards"] = df_nfl["receiving_yards"].fillna(0.0)
+  df_nfl["receiving_yards"] = df_nfl["receiving_yards"].fillna(0.0)
 else:
-    df_nfl["receiving_yards"] = 0.0
+  df_nfl["receiving_yards"] = 0.0
 
 yac_col = (
     "receiving_yards_after_catch"
@@ -155,9 +171,9 @@ yac_col = (
     else "yards_after_catch"
 )
 if yac_col in df_nfl.columns:
-    df_nfl[yac_col] = df_nfl[yac_col].fillna(0.0)
+  df_nfl[yac_col] = df_nfl[yac_col].fillna(0.0)
 else:
-    df_nfl[yac_col] = 0.0
+  df_nfl[yac_col] = 0.0
 
 df_nfl["completed_air_yards"] = (
     df_nfl["receiving_yards"] - df_nfl[yac_col]
@@ -168,35 +184,40 @@ df_nfl["unrealized_air_yards"] = (
 
 # Red Zone Opportunity Approximation Index
 df_nfl["rz_opp_score"] = (
-    df_nfl["targets"] * 0.35 + df_nfl["carries"] * 0.25 + df_nfl["total_tds"] * 1.5
+    df_nfl["targets"] * 0.35
+    + df_nfl["carries"] * 0.25
+    + df_nfl["total_tds"] * 1.5
 )
 
 
-# Position Opportunity Score
+# Position Opportunity Score / WOPR Architecture
 def calc_pos_opp(row):
-    pos = row["position"]
-    carries, targets, attempts = (
-        row.get("carries", 0.0),
-        row.get("targets", 0.0),
-        row.get("attempts", 0.0),
-    )
-    target_share, air_yards_share, rushing_share = (
-        row.get("target_share", 0.0),
-        row.get("air_yards_share", 0.0),
-        row.get("rushing_share", 0.0),
-    )
-    if rushing_share == 0.0 and carries > 0:
-        rushing_share = min(1.0, carries / 25.0)
-    if target_share == 0.0 and targets > 0:
-        target_share = min(1.0, targets / 35.0)
+  pos = row["position"]
+  carries, targets, attempts = (
+      row.get("carries", 0.0),
+      row.get("targets", 0.0),
+      row.get("attempts", 0.0),
+  )
+  target_share, air_yards_share, rushing_share = (
+      row.get("target_share", 0.0),
+      row.get("air_yards_share", 0.0),
+      row.get("rushing_share", 0.0),
+  )
+  snap_pct = row.get("snap_pct", 0.0)
 
-    if pos in ["WR", "TE"]:
-        return (1.5 * target_share) + (0.7 * air_yards_share)
-    elif pos == "RB":
-        return rushing_share + (1.5 * target_share)
-    elif pos == "QB":
-        return (attempts + carries) / 50.0
-    return 0.0
+  if rushing_share == 0.0 and carries > 0:
+    rushing_share = min(1.0, carries / 25.0)
+  if target_share == 0.0 and targets > 0:
+    target_share = min(1.0, targets / 35.0)
+
+  if pos in ["WR", "TE"]:
+    # WOPR derivative formula + snap share weighting
+    return (1.2 * target_share) + (0.6 * air_yards_share) + (0.3 * snap_pct)
+  elif pos == "RB":
+    return (0.8 * rushing_share) + (1.2 * target_share) + (0.3 * snap_pct)
+  elif pos == "QB":
+    return ((attempts + carries) / 50.0) * (0.8 + (0.2 * snap_pct))
+  return 0.0
 
 
 df_nfl["pos_opp_score"] = df_nfl.apply(calc_pos_opp, axis=1)
@@ -206,26 +227,25 @@ default_team = (
     "Vader's Raiders" if "Vader's Raiders" in all_teams else all_teams[0]
 )
 
-# 5. Calculate Defensive SOS Rankings (DESC ordering: Rank 1 = Allows Most Points = EASY)
+# 5. Defensive SOS Rankings (Safe Multi-Season Query)
 def_points_allowed_query = """
 SELECT 
     opponent_team as def_team, position, 
     AVG(fantasy_points_ppr) as avg_pts_allowed,
     RANK() OVER (PARTITION BY position ORDER BY AVG(fantasy_points_ppr) DESC) as def_rank
 FROM df_nfl
-WHERE season = 2026
 GROUP BY opponent_team, position
 """
 df_def_sos = duckdb.query(def_points_allowed_query).df()
 
-# 6. Dynamic Current NFL Week Detection
+# 6. Dynamic Week Detection
 df_curr_season = df_nfl[df_nfl["season"] == 2026]
 
 if not df_curr_season.empty:
-    max_active_week = int(df_curr_season["week"].max())
-    current_week = min(max_active_week, 15)
+  max_active_week = int(df_curr_season["week"].max())
+  current_week = min(max_active_week, 15)
 else:
-    current_week = 1
+  current_week = 1
 
 next_weeks = [current_week + 1, current_week + 2, current_week + 3]
 
@@ -237,108 +257,117 @@ WHERE season = 2026 AND week IN ({', '.join(map(str, next_weeks))})
 """
 df_upcoming_games = duckdb.query(sched_query).df()
 
-# Map Next 3 Matchups & Weather per NFL Team
+# Map Matchups & Weather
 team_sos_list = []
 nfl_teams = df_nfl["team"].dropna().unique()
 
 for team in nfl_teams:
-    team_row = {"Team": team}
-    for w_idx, w in enumerate(next_weeks):
-        game = df_upcoming_games[
-            (df_upcoming_games["week"] == w)
-            & (
-                (df_upcoming_games["home_team"] == team)
-                | (df_upcoming_games["away_team"] == team)
-            )
-        ]
-        if not game.empty:
-            g = game.iloc[0]
-            is_home = g["home_team"] == team
-            opp = g["away_team"] if is_home else g["home_team"]
-            prefix = "vs " if is_home else "@ "
+  team_row = {"Team": team}
+  for w_idx, w in enumerate(next_weeks):
+    game = df_upcoming_games[
+        (df_upcoming_games["week"] == w)
+        & (
+            (df_upcoming_games["home_team"] == team)
+            | (df_upcoming_games["away_team"] == team)
+        )
+    ]
+    if not game.empty:
+      g = game.iloc[0]
+      is_home = g["home_team"] == team
+      opp = g["away_team"] if is_home else g["home_team"]
+      prefix = "vs " if is_home else "@ "
 
-            weather_flags = ""
-            if w_idx == 0:
-                is_outdoor = str(g["roof"]).lower() in ["outdoors", "open"]
-                wind_speed = float(g["wind"])
-                temp = float(g["temp"])
+      weather_flags = ""
+      if w_idx == 0:
+        is_outdoor = str(g["roof"]).lower() in ["outdoors", "open"]
+        wind_speed = float(g["wind"])
+        temp = float(g["temp"])
 
-                if is_outdoor:
-                    if wind_speed >= 15.0:
-                        weather_flags += " 💨"
-                    if temp <= 32.0:
-                        weather_flags += " 🥶"
-                    elif temp >= 90.0:
-                        weather_flags += " 🔥"
+        if is_outdoor:
+          if wind_speed >= 15.0:
+            weather_flags += " 💨"
+          if temp <= 32.0:
+            weather_flags += " 🥶"
+          elif temp >= 90.0:
+            weather_flags += " 🔥"
 
-            team_row[f"W{w}"] = f"{prefix}{opp}{weather_flags}"
-            team_row[f"W{w}_opp"] = opp
-        else:
-            team_row[f"W{w}"] = "BYE"
-            team_row[f"W{w}_opp"] = "BYE"
-    team_sos_list.append(team_row)
+      team_row[f"W{w}"] = f"{prefix}{opp}{weather_flags}"
+      team_row[f"W{w}_opp"] = opp
+    else:
+      team_row[f"W{w}"] = "BYE"
+      team_row[f"W{w}_opp"] = "BYE"
+  team_sos_list.append(team_row)
 
 df_team_sos = pd.DataFrame(team_sos_list)
 
 # 7. DuckDB Base Analytics Query
 base_query = """
-WITH prior_season AS (
-    SELECT clean_name, AVG(pos_opp_score) as prior_opp
-    FROM df_nfl WHERE season = 2025 GROUP BY clean_name
-),
-current_season AS (
+WITH current_active_games AS (
     SELECT 
-        clean_name, player_display_name as player_name, position, team, week, 
+        clean_name, player_display_name as player_name, position, team, week, season,
         fantasy_points_ppr as ppr_pts, targets, carries, attempts as pass_attempts, 
-        target_share, air_yards_share, rushing_share, pos_opp_score, unrealized_air_yards, rz_opp_score, total_tds,
-        AVG(pos_opp_score) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_opp,
-        AVG(fantasy_points_ppr) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_ppr,
-        AVG(carries + targets) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_touches,
-        AVG(targets) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_targets,
-        AVG(unrealized_air_yards) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_unrealized_ay,
-        AVG(rz_opp_score) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_rz_opp,
-        SUM(total_tds) OVER (PARTITION BY clean_name ORDER BY week ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as curr_3wk_tds,
-        LAG(pos_opp_score, 2, pos_opp_score) OVER (PARTITION BY clean_name ORDER BY week) as prev_opp_base,
+        target_share, air_yards_share, rushing_share, snap_pct, pos_opp_score, unrealized_air_yards, rz_opp_score, total_tds,
+        ROW_NUMBER() OVER (PARTITION BY clean_name ORDER BY season DESC, week DESC) as active_rn,
+        LEAD(pos_opp_score, 2) OVER (PARTITION BY clean_name ORDER BY season DESC, week DESC) as lead_prev_opp,
         COUNT(week) OVER (PARTITION BY clean_name) as weeks_played
-    FROM df_nfl WHERE season = 2026
+    FROM df_nfl 
+    WHERE (carries > 0 OR targets > 0 OR attempts > 0 OR snap_pct > 0.1)
+),
+trailing_3wk_aggregates AS (
+    SELECT 
+        clean_name,
+        AVG(pos_opp_score) as curr_3wk_opp,
+        ROUND(AVG(ppr_pts), 1) as curr_3wk_ppr,
+        AVG(carries + targets) as curr_3wk_touches,
+        AVG(targets) as curr_3wk_targets,
+        AVG(snap_pct) as curr_3wk_snap_share,
+        AVG(unrealized_air_yards) as curr_3wk_unrealized_ay,
+        AVG(rz_opp_score) as curr_3wk_rz_opp,
+        SUM(total_tds) as curr_3wk_tds
+    FROM current_active_games
+    WHERE active_rn <= 3
+    GROUP BY clean_name
 ),
 latest_curr AS (
-    SELECT *, ROW_NUMBER() OVER (PARTITION BY clean_name ORDER BY week DESC) as rn FROM current_season
+    SELECT 
+        c.player_name, c.clean_name, c.position, c.team, c.weeks_played, c.pos_opp_score,
+        COALESCE(c.lead_prev_opp, c.pos_opp_score) as prev_opp_base
+    FROM current_active_games c
+    WHERE c.active_rn = 1
 ),
 blended_metrics AS (
     SELECT 
-        c.player_name, c.clean_name, c.position, c.team, c.curr_3wk_ppr, c.curr_3wk_touches, c.curr_3wk_targets,
-        ROUND(c.curr_3wk_unrealized_ay, 1) as curr_3wk_unrealized_ay,
-        ROUND(c.curr_3wk_rz_opp, 1) as curr_3wk_rz_opp,
-        c.curr_3wk_tds,
+        l.player_name, l.clean_name, l.position, l.team, 
+        t.curr_3wk_ppr, t.curr_3wk_touches, t.curr_3wk_targets,
+        ROUND(t.curr_3wk_snap_share * 100, 1) as snap_pct_val,
+        ROUND(t.curr_3wk_unrealized_ay, 1) as curr_3wk_unrealized_ay,
+        ROUND(t.curr_3wk_rz_opp, 1) as curr_3wk_rz_opp,
+        t.curr_3wk_tds,
         COALESCE(d.depth_team, 1) as depth_rank,
         COALESCE(i.report_status, 'Active') as injury_status,
-        (GREATEST(0.0, (4.0 - c.weeks_played) / 4.0) * COALESCE(p.prior_opp, c.curr_3wk_opp)) +
-        ((1.0 - GREATEST(0.0, (4.0 - c.weeks_played) / 4.0)) * c.curr_3wk_opp) as blended_opp,
-        ((GREATEST(0.0, (4.0 - c.weeks_played) / 4.0) * COALESCE(p.prior_opp, c.curr_3wk_opp)) +
-        ((1.0 - GREATEST(0.0, (4.0 - c.weeks_played) / 4.0)) * c.curr_3wk_opp)) - c.prev_opp_base as opp_surge
-    FROM latest_curr c
-    LEFT JOIN prior_season p ON c.clean_name = p.clean_name
-    LEFT JOIN df_depth_clean d ON c.clean_name = d.clean_name
-    LEFT JOIN df_injuries_clean i ON c.clean_name = i.clean_name
-    WHERE c.rn = 1
+        t.curr_3wk_opp as blended_opp,
+        t.curr_3wk_opp - l.prev_opp_base as opp_surge
+    FROM latest_curr l
+    JOIN trailing_3wk_aggregates t ON l.clean_name = t.clean_name
+    LEFT JOIN df_depth_clean d ON l.clean_name = d.clean_name
+    LEFT JOIN df_injuries_clean i ON l.clean_name = i.clean_name
 )
 SELECT * FROM blended_metrics;
 """
 df_analytics = duckdb.query(base_query).df()
 
-# 8. Granular Query for Modal Game Logs (Sorted Date Descending)
+# 8. Granular Query for Modal Game Logs
 granular_query = """
 WITH active_games AS (
     SELECT 
         clean_name, season, week, position, targets, carries, attempts as pass_attempts,
         ROUND(target_share, 3) as tgt_share, ROUND(air_yards_share, 3) as ay_share,
-        ROUND(rushing_share, 3) as rush_share, ROUND(pos_opp_score, 3) as opp_score,
+        ROUND(snap_pct * 100, 1) as snap_pct, ROUND(pos_opp_score, 3) as opp_score,
         ROUND(unrealized_air_yards, 1) as unrealized_ay, ROUND(rz_opp_score, 1) as rz_opp, total_tds,
         ROUND(fantasy_points_ppr, 1) as ppr_pts,
         ROW_NUMBER() OVER (PARTITION BY clean_name ORDER BY season DESC, week DESC) as game_rn
     FROM df_nfl
-    WHERE season IN (2025, 2026) AND (carries > 0 OR targets > 0 OR attempts > 0)
+    WHERE season IN (2025, 2026) AND (carries > 0 OR targets > 0 OR attempts > 0 OR snap_pct > 0.1)
 )
 SELECT * FROM active_games ORDER BY clean_name, season DESC, week DESC;
 """
@@ -349,6 +378,7 @@ squad_master_sql = """
 SELECT 
     r.fantasy_team, r.roster_pos as "Slot", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team", bm.injury_status,
     ROUND(bm.blended_opp, 3) as "Opp Score", ROUND(bm.opp_surge, 3) as "Surge", 
+    bm.snap_pct_val as "snap_val",
     ROUND(bm.curr_3wk_unrealized_ay, 1) as "air_yds_val", 
     ROUND(bm.curr_3wk_rz_opp, 1) as "rz_opp_val", 
     ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
@@ -363,6 +393,7 @@ SELECT
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
         CASE WHEN bm.injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
              WHEN bm.injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
+        CASE WHEN bm.snap_pct_val >= 75.0 AND bm.curr_3wk_ppr < 10.0 THEN '⏱️ HIGH SNAP BUY-LOW' END,
         CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
         CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 AND bm.curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW' END,
         CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END,
@@ -378,6 +409,7 @@ waiver_sql = """
 SELECT 
     player_name as "Player", clean_name, position as "Pos", team as "Team", injury_status,
     ROUND(blended_opp, 3) as "Opp Score", ROUND(opp_surge, 3) as "Surge (Velocity)", 
+    snap_pct_val as "snap_val",
     ROUND(curr_3wk_unrealized_ay, 1) as "air_yds_val", 
     ROUND(curr_3wk_rz_opp, 1) as "rz_opp_val", 
     ROUND(curr_3wk_ppr, 1) as "PPR Avg",
@@ -391,6 +423,7 @@ SELECT
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
         CASE WHEN injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
              WHEN injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
+        CASE WHEN snap_pct_val >= 75.0 AND curr_3wk_ppr < 10.0 THEN '⏱️ HIGH SNAP BUY-LOW' END,
         CASE WHEN depth_rank > 1 AND blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
         CASE WHEN position IN ('WR', 'TE') AND curr_3wk_unrealized_ay >= 65.0 AND curr_3wk_ppr < 11.0 THEN '🚨 AIR YARD BUY-LOW' END,
         CASE WHEN curr_3wk_rz_opp >= 2.5 AND curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END,
@@ -406,6 +439,7 @@ trade_master_sql = """
 SELECT 
     r.fantasy_team as "Owner", bm.player_name as "Player", bm.clean_name, bm.position as "Pos", bm.team as "Team", bm.injury_status,
     ROUND(bm.blended_opp, 3) as "Opp Score", 
+    bm.snap_pct_val as "snap_val",
     ROUND(bm.curr_3wk_unrealized_ay, 1) as "air_yds_val", 
     ROUND(bm.curr_3wk_rz_opp, 1) as "rz_opp_val", 
     ROUND(bm.curr_3wk_ppr, 1) as "PPR Avg",
@@ -414,6 +448,7 @@ SELECT
     COALESCE(NULLIF(ARRAY_TO_STRING(LIST_FILTER([
         CASE WHEN bm.injury_status IN ('Out', 'IR', 'Doubtful') THEN '🚑 INJURED / OUT' 
              WHEN bm.injury_status IN ('Questionable') THEN '⚠️ QUESTIONABLE' END,
+        CASE WHEN bm.snap_pct_val >= 75.0 AND bm.curr_3wk_ppr < 10.0 THEN '⏱️ HIGH SNAP BUY-LOW' END,
         CASE WHEN bm.depth_rank > 1 AND bm.blended_opp >= 0.35 THEN '⚠️ SHORT-TERM VOLUME' END,
         CASE WHEN bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 THEN '🚨 AIR YARD BUY-LOW' END,
         CASE WHEN bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1 THEN '🎯 RED ZONE BUY-LOW' END
@@ -421,6 +456,7 @@ SELECT
 FROM df_rosters r
 JOIN df_analytics bm ON r.clean_name = bm.clean_name
 WHERE (bm.blended_opp >= 0.40 AND bm.curr_3wk_targets >= 4.0 AND bm.curr_3wk_ppr < 11.0)
+   OR (bm.snap_pct_val >= 75.0 AND bm.curr_3wk_ppr < 10.0)
    OR (bm.position IN ('WR', 'TE') AND bm.curr_3wk_unrealized_ay >= 65.0 AND bm.curr_3wk_ppr < 11.0)
    OR (bm.curr_3wk_rz_opp >= 2.5 AND bm.curr_3wk_tds <= 1)
 ORDER BY "Opp Score" DESC;
@@ -434,7 +470,7 @@ team_options_html = "".join(
     ]
 )
 
-# 10. Build HTML Layout string
+# 10. Build HTML Layout
 html_content = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -454,7 +490,6 @@ html_content = f"""
         select {{ background-color: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 12px; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; outline: none; }}
         select:hover {{ background-color: #334155; }}
 
-        /* TAB NAVIGATION STYLES */
         .tab-bar {{ display: flex; gap: 10px; border-bottom: 2px solid #334155; padding-bottom: 0; margin-bottom: 20px; }}
         .tab-btn {{
             background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; border-bottom: none;
@@ -474,7 +509,7 @@ html_content = f"""
         .toggle-btn:hover {{ background-color: #334155; }}
 
         .info-card {{ background-color: #1e293b; border-left: 4px solid #38bdf8; padding: 15px 20px; margin-top: 15px; border-radius: 0 8px 8px 0; font-size: 0.9rem; line-height: 1.5; display: none; }}
-        .info-card.always-visible {{ display: block; }}
+        .info-card.always-visible {{ display: block !important; }}
         .info-card ul {{ margin: 5px 0 0 0; padding-left: 20px; }}
         .info-card li {{ margin-bottom: 4px; }}
         
@@ -544,61 +579,17 @@ html_content = f"""
         .injury-badge-out {{ background-color: #ef4444; color: #ffffff; font-size: 0.7rem; font-weight: bold; padding: 2px 5px; border-radius: 4px; margin-left: 6px; }}
         .injury-badge-q {{ background-color: #f59e0b; color: #0f172a; font-size: 0.7rem; font-weight: bold; padding: 2px 5px; border-radius: 4px; margin-left: 6px; }}
 
-        /* RESPONSIVE MOBILE OVERRIDES */
         @media screen and (max-width: 768px) {{
-            body {{
-                padding: 12px;
-            }}
-
-            .header-container {{
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-            }}
-            
-            .controls {{
-                width: 100%;
-                justify-content: space-between;
-            }}
-
-            .timestamp-bar {{
-                flex-direction: column;
-                gap: 6px;
-            }}
-
-            .tab-bar {{
-                overflow-x: auto;
-                white-space: nowrap;
-                padding-bottom: 4px;
-            }}
-
-            .tab-btn {{
-                padding: 8px 14px;
-                font-size: 0.9rem;
-            }}
-
-            #squadTableContainer, 
-            #waiverTableContainer, 
-            #tradeTableContainer, 
-            #sosTableContainer,
-            #modalTableContainer {{
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }}
-
-            table {{
-                font-size: 0.82rem;
-            }}
-
-            th, td {{
-                padding: 8px 10px;
-            }}
-
-            .modal-card {{
-                width: 95%;
-                padding: 15px;
-                max-height: 90vh;
-            }}
+            body {{ padding: 12px; }}
+            .header-container {{ flex-direction: column; align-items: flex-start; gap: 12px; }}
+            .controls {{ width: 100%; justify-content: space-between; }}
+            .timestamp-bar {{ flex-direction: column; gap: 6px; }}
+            .tab-bar {{ overflow-x: auto; white-space: nowrap; padding-bottom: 4px; }}
+            .tab-btn {{ padding: 8px 14px; font-size: 0.9rem; }}
+            #squadTableContainer, #waiverTableContainer, #tradeTableContainer, #sosTableContainer, #modalTableContainer {{ overflow-x: auto; -webkit-overflow-scrolling: touch; }}
+            table {{ font-size: 0.82rem; }}
+            th, td {{ padding: 8px 10px; }}
+            .modal-card {{ width: 95%; padding: 15px; max-height: 90vh; }}
         }}
     </style>
 </head>
@@ -631,7 +622,6 @@ html_content = f"""
 
     <!-- TAB 1: ROSTER ANALYTICS -->
     <div id="roster-tab" class="tab-content active">
-        <!-- SECTION 1: SQUAD EVALUATION -->
         <div class="section-header" onclick="toggleCard('squadCard', 'squadHint')">
             <h2>🏈 Squad Evaluation (<span id="activeTeamHeader">{default_team}</span>) <span class="toggle-hint" id="squadHint">[+ Click to expand definitions]</span></h2>
         </div>
@@ -639,13 +629,12 @@ html_content = f"""
             <strong>Squad Evaluation Architecture (Role Verdict + Tactical Flags):</strong>
             <ul>
                 <li><strong>Role Verdict:</strong> Primary status column (<code>🔥 CORE STARTER</code>, <code>📈 SURGING ROLE</code>, <code>🚨 BUY LOW HOLD</code>, <code>✂️ DROP CANDIDATE</code>, <code>👀 HOLD</code>).</li>
-                <li><strong>Dynamic Tactical Hover:</strong> Hovering over flags reveals exact underlying stats (e.g. Air Yds, Red Zone Opps).</li>
+                <li><strong>Dynamic Tactical Hover:</strong> Hovering over flags reveals exact underlying stats (e.g., Snap Share, Air Yds, Red Zone Opps).</li>
                 <li><strong>Modal Game Logs:</strong> Click any player name to view their 3-week stat averages and full game log.</li>
             </ul>
         </div>
         <div id="squadTableContainer"></div>
 
-        <!-- SECTION 4: SOS & WEATHER CHEAT SHEET -->
         <div class="section-header" onclick="toggleCard('sosCard', 'sosHint')">
             <h2>🗓️ Strength of Schedule (Next 3 Weeks) <span class="toggle-hint" id="sosHint">[+ Click to expand definitions]</span></h2>
         </div>
@@ -655,9 +644,6 @@ html_content = f"""
                 <li><span class="matchup-easy">🟩 EASY:</span> Facing a defense allowing high fantasy points to this player's position (Top-8 favorable matchup).</li>
                 <li><span class="matchup-neutral">🟨 NEUTRAL:</span> Average defensive matchup against this position.</li>
                 <li><span class="matchup-tough">🟥 TOUGH:</span> Facing a top-8 defense against this player's position.</li>
-                <li><strong>💨 WIND ALERT:</strong> Outdoor game with wind ≥ 15 mph projected.</li>
-                <li><strong>🥶 COLD ALERT:</strong> Freezing conditions projected (≤ 32°F).</li>
-                <li><strong>🔥 HEAT ALERT:</strong> Extreme heat projected (≥ 90°F).</li>
             </ul>
         </div>
         <div id="sosTableContainer"></div>
@@ -665,7 +651,6 @@ html_content = f"""
 
     <!-- TAB 2: MARKET INTELLIGENCE -->
     <div id="market-tab" class="tab-content">
-        <!-- SECTION 2: WAIVER WIRE -->
         <div class="section-header" onclick="toggleCard('waiverCard', 'waiverHint')">
             <h2>🔥 Unclaimed Waiver Wire (Ranked by Opportunity Surge) <span class="toggle-hint" id="waiverHint">[+ Click to expand definitions]</span></h2>
             <div class="controls" onclick="event.stopPropagation();">
@@ -682,13 +667,12 @@ html_content = f"""
         <div class="info-card" id="waiverCard">
             <strong>Waiver Wire Evaluation Architecture:</strong>
             <ul>
-                <li><strong>Role Verdict:</strong> Priority classification for unowned assets (<code>🔥 HIGH-VOLUME ALPHA</code>, <code>🚨 BUY LOW / TARGET</code>, <code>📈 SURGING WORKLOAD</code>, <code>👀 STASH</code>).</li>
-                <li><strong>Tactical Flags:</strong> Actionable overlay tags including <code>🎯 RED ZONE BUY-LOW</code>, <code>🚨 AIR YARD BUY-LOW</code>, and <code>⚠️ SHORT-TERM VOLUME</code>.</li>
+                <li><strong>Role Verdict:</strong> Priority classification for unowned assets.</li>
+                <li><strong>Tactical Flags:</strong> Actionable overlay tags including <code>⏱️ HIGH SNAP BUY-LOW</code>, <code>🎯 RED ZONE BUY-LOW</code>, and <code>🚨 AIR YARD BUY-LOW</code>.</li>
             </ul>
         </div>
         <div id="waiverTableContainer"></div>
 
-        <!-- SECTION 3: TRADE TARGETS -->
         <div class="section-header" onclick="toggleCard('tradeCard', 'tradeHint')">
             <h2>🎯 Rival Roster Trade Targets (High Opportunity / Low Output) <span class="toggle-hint" id="tradeHint">[+ Click to expand definitions]</span></h2>
             <button class="toggle-btn" onclick="openTradeAnalyzerModal()" style="margin-left: 15px; background-color: #38bdf8; color: #0f172a;">⚖️ Open Trade Analyzer</button>
@@ -696,7 +680,7 @@ html_content = f"""
         <div class="info-card" id="tradeCard">
             <strong>Trade Targets Architecture:</strong>
             <ul>
-                <li>Highlights rival rostered players seeing substantial workload (Opp ≥ 0.40, deep air yards, or high red zone volume) but severely underperforming on fantasy points.</li>
+                <li>Highlights rival rostered players seeing substantial workload and snap share but underperforming on fantasy points.</li>
             </ul>
         </div>
         <div style="margin-top: 10px;">
@@ -712,82 +696,50 @@ html_content = f"""
         </div>
         <div class="info-card always-visible spacious-card" id="engineFeaturesCard">
             <strong style="font-size: 1.1rem; color: #f8fafc;">Active Features & Analytics Engine Breakdown:</strong>
-            
             <ul class="feature-list">
                 <li class="feature-item">
-                    <span class="feature-title">📊 Position-Weighted Opportunity Score (WOPR / Workload Share)</span>
-                    <div class="feature-desc">Blends target share, air yards share, rushing share, and passing attempts tailored per position:</div>
+                    <span class="feature-title">🏈 Position Opportunity Score & WOPR Derivative</span>
+                    <div class="feature-desc">Combines target share, air yards share, rushing share, and offensive snap percentage into a single position-specific opportunity metric normalized between 0.00 and 1.00.</div>
                     <div class="formula-box">
-                        <div>• <code>WR / TE Opportunity (WOPR):</code> 1.5 × Target Share + 0.7 × Air Yards Share</div>
-                        <div>• <code>RB Opportunity Share:</code> Rushing Share + 1.5 × Target Share</div>
-                        <div>• <code>QB Opportunity Share:</code> (Passing Attempts + Rushing Carries) / 50.0</div>
+                        <div>• <code>WR / TE Opp:</code> 1.2 × Target Share + 0.6 × Air Yards Share + 0.3 × Snap Pct</div>
+                        <div>• <code>RB Opp:</code> 0.8 × Rushing Share + 1.2 × Target Share + 0.3 × Snap Pct</div>
+                        <div>• <code>QB Opp:</code> ((Attempts + Carries) / 50) × (0.8 + 0.2 × Snap Pct)</div>
                     </div>
                 </li>
-
                 <li class="feature-item">
-                    <span class="feature-title">🎯 Red Zone Workload Share & TD Regression Engine</span>
-                    <div class="feature-desc">
-                        Isolates high-leverage targets, carries, and touchdowns inside the scoring zone. Automatically flags players getting prime goal-line usage who are underperforming on touchdowns with <code>🎯 RED ZONE BUY-LOW</code>.
-                    </div>
+                    <span class="feature-title">⏱️ Snap Count Share Integration</span>
+                    <div class="feature-desc">Incorporates official offensive snap percentages directly into positional opportunity calculations. Flags players logging high snap participation (≥75%) who are underperforming in fantasy output.</div>
+                </li>
+                <li class="feature-item">
+                    <span class="feature-title">📊 Trailing 3-Week Rolling PPR Average</span>
+                    <div class="feature-desc">Aggregates a player's trailing 3 active games via DuckDB CTE window partitions to guarantee true mathematical rolling averages across all master tables rather than single-week snapshots.</div>
+                </li>
+                <li class="feature-item">
+                    <span class="feature-title">📈 Workload Velocity (Opp Surge)</span>
+                    <div class="feature-desc">Measures the 2-week rate of change in a player's Opportunity Score using DuckDB SQL window functions (`LEAD/LAG`) to detect rapidly expanding or shrinking roles.</div>
                     <div class="formula-box">
-                        <div>• <code>Red Zone Opportunity Score (RZ Opp):</code> 0.35 × Targets + 0.25 × Carries + 1.5 × TDs</div>
+                        <div>• <code>Surge:</code> Trailing 3-Week Opp Score − Baseline Opp Score (2 Weeks Prior)</div>
                     </div>
                 </li>
-
                 <li class="feature-item">
-                    <span class="feature-title">🔄 Streamlined Trade Impact Analyzer</span>
-                    <div class="feature-desc">
-                        A dynamic mini-modal calculator that evaluates multi-player trade proposals between rostered assets across rival managers. Filter assets by rival team/manager to compute net changes in <code>Opportunity Score</code> and <code>PPR Average</code>.
-                    </div>
+                    <span class="feature-title">🎯 Red Zone & Unrealized Air Yards Buy-Low Index</span>
+                    <div class="feature-desc">Tracks target air yards minus completed air yards along with red zone opportunities (targets, carries, and touchdowns inside the 20) to identify positive regression candidates before market breakouts occur.</div>
                 </li>
-
                 <li class="feature-item">
-                    <span class="feature-title">🧩 Ultra-Clean Table Layout & Hover Stat Integration</span>
-                    <div class="feature-desc">
-                        Reduces visual clutter by removing standalone Air Yards and Red Zone columns from the main tables while embedding exact numbers into <strong>Tactical Flag hover tooltips</strong> and the <strong>Player Modal header</strong>.
-                    </div>
+                    <span class="feature-title">📉 Micro-Sparklines (PPR Trends)</span>
+                    <div class="feature-desc">Renders dynamic inline SVG polyline sparklines in master table rows, visualizing game-by-game PPR scoring trajectories across trailing active games.</div>
                 </li>
-
                 <li class="feature-item">
-                    <span class="feature-title">🎯 Unrealized Air Yards</span>
-                    <div class="feature-desc">
-                        Tracks downfield target volume (<code>Target Air Yards − Completed Air Yards</code>). Automatically flags positive regression candidates underperforming on points with <code>🚨 AIR YARD BUY-LOW</code>.
-                    </div>
+                    <span class="feature-title">🗓️ Strength of Schedule (SOS) & Weather Engine</span>
+                    <div class="feature-desc">Ranks opponent defenses by points allowed per position over upcoming 3-game windows (`🟩 EASY`, `🟨 NEUTRAL`, `🟥 TOUGH`) and flags extreme outdoor weather alerts (`💨 Wind ≥15mph`, `🥶 Temp ≤32°F`, `🔥 Temp ≥90°F`).</div>
                 </li>
-
                 <li class="feature-item">
-                    <span class="feature-title">🗓️ Trailing 3-Week Heuristic Window</span>
-                    <div class="feature-desc">
-                        Uses DuckDB window functions over a player's last 3 active games to eliminate single-week skewed averages and reflect true current usage trends.
-                    </div>
+                    <span class="feature-title">🏥 Depth Chart Rank & Official IR/Injury Tracking</span>
+                    <div class="feature-desc">Joins official nflreadpy depth chart hierarchies and practice status reports directly to player names, flagging backup volume increases (`⚠️ SHORT-TERM VOLUME`) or injury statuses (`OUT`, `Q`, `IR`).</div>
                 </li>
-
                 <li class="feature-item">
-                    <span class="feature-title">📈 Workload Velocity (Surge)</span>
-                    <div class="feature-desc">
-                        Calculates multi-week acceleration in role usage to highlight rising bench assets before point production catches up.
-                    </div>
-                </li>
-
-                <li class="feature-item">
-                    <span class="feature-title">📉 Interactive PPR Sparklines</span>
-                    <div class="feature-desc">
-                        Visualizes recent 4-game scoring trajectories inline within master tables. Hovering over sparklines reveals raw game-by-game PPR scores.
-                    </div>
-                </li>
-
-                <li class="feature-item">
-                    <span class="feature-title">🛡️ Depth Chart & IR Volume Guardrail</span>
-                    <div class="feature-desc">
-                        Tracks team depth order and injury reports. Automatically tags backup players stepping into starter roles with <code>⚠️ SHORT-TERM VOLUME</code> to prevent false trade/breakout signals.
-                    </div>
-                </li>
-
-                <li class="feature-item">
-                    <span class="feature-title">🌦️ Defensive Strength of Schedule & Weather Cheat Sheet</span>
-                    <div class="feature-desc">
-                        Evaluates upcoming 3-week opponent matchups color-coded by defensive points allowed per position, along with high-wind (💨), extreme cold (🥶), and severe heat (🔥) outdoor flags restricted to next week's game.
-                    </div>
+                    <span class="feature-title">⚖️ Streamlined Trade Impact Analyzer</span>
+                    <div class="feature-desc">Interactive modal calculator evaluating proposed multi-player trades by comparing total net Opportunity Score gains/losses and net PPR point differences between managers.</div>
                 </li>
             </ul>
         </div>
@@ -811,14 +763,11 @@ html_content = f"""
             <p style="color:#94a3b8; font-size:0.85rem;">Select assets to calculate net Opportunity Score & PPR impact for multi-player trade proposals.</p>
             
             <div style="display: flex; gap: 20px; margin-top: 20px;">
-                <!-- Side A: Giving Away -->
                 <div style="flex: 1; background: #0f172a; padding: 15px; border-radius: 6px; border: 1px solid #334155;">
                     <h3 style="color: #f87171; margin-top:0;">Giving Away (<span id="giveTeamLabel">My Roster</span>)</h3>
                     <select id="givePlayer1" onchange="calculateTradeImpact()" style="width: 100%; margin-bottom: 10px;"><option value="">Select Player 1...</option></select>
                     <select id="givePlayer2" onchange="calculateTradeImpact()" style="width: 100%;"><option value="">Select Player 2 (Optional)...</option></select>
                 </div>
-                
-                <!-- Side B: Receiving (Filtered by Manager Dropdown) -->
                 <div style="flex: 1; background: #0f172a; padding: 15px; border-radius: 6px; border: 1px solid #334155;">
                     <h3 style="color: #4ade80; margin-top:0;">Receiving</h3>
                     <select id="receiveTeamSelect" onchange="populateReceivePlayers()" style="width: 100%; margin-bottom: 10px;">
@@ -829,7 +778,6 @@ html_content = f"""
                 </div>
             </div>
 
-            <!-- Net Output Display -->
             <div id="tradeSummaryOutput" style="margin-top: 20px; padding: 15px; background: #0f172a; border-radius: 6px; text-align: center; border-left: 4px solid #38bdf8;">
                 <span style="color: #64748b;">Select players above to view net proposal impact.</span>
             </div>
@@ -848,23 +796,24 @@ html_content = f"""
         let isTradeExpanded = false;
 
         const verdictTooltips = {{
-            '🚑 INJURED / OUT': 'Player listed as Out, Doubtful, or on IR. High injury risk; verify status before starting.',
-            '⚠️ QUESTIONABLE': 'Player listed as Questionable on official NFL injury report. Monitor practice participation.',
-            '⚠️ SHORT-TERM VOLUME': 'Elevated workload resulting from starter injury/IR. High immediate volume, but temporary value.',
-            '🚨 AIR YARD BUY-LOW': 'High downfield target volume (≥65 Unrealized Air Yds/gm) but low PPR points (<11.0). Prime positive regression breakout candidate.',
-            '🎯 RED ZONE BUY-LOW': 'High red-zone opportunity index (≥2.5) with low touchdown output (≤1 TD over trailing 3 games). Immediate TD regression candidate.',
-            '🔥 CORE STARTER': 'Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0). Unquestioned weekly start.',
-            '🚨 BUY LOW HOLD': 'High opportunity (Opp ≥ 0.40) & target floor but low output (PPR < 11.0). Do not drop; breakout incoming.',
-            '📈 SURGING ROLE': 'Workload velocity growing rapidly (Surge ≥ 0.100). Multi-week acceleration in positional role usage.',
-            '⚠️ FLUKE RISK': 'Scoring fantasy points on weak volume (<8 touches/gm & Opp < 0.22). Sell high before efficiency drops.',
-            '✂️ DROP CANDIDATE': 'Weak volume (Opp < 0.20) and poor fantasy output (PPR < 8.0). Safely drop to free up bench space.',
+            '🚑 INJURED / OUT': 'Player listed as Out, Doubtful, or on IR.',
+            '⚠️ QUESTIONABLE': 'Player listed as Questionable on official NFL injury report.',
+            '⏱️ HIGH SNAP BUY-LOW': 'Averaging ≥75% snap share but low PPR output (<10.0 pts/gm). High opportunity buy-low target.',
+            '⚠️ SHORT-TERM VOLUME': 'Elevated workload resulting from starter injury/IR.',
+            '🚨 AIR YARD BUY-LOW': 'High downfield target volume (≥65 Unrealized Air Yds/gm) but low PPR points (<11.0).',
+            '🎯 RED ZONE BUY-LOW': 'High red-zone opportunity index (≥2.5) with low touchdown output (≤1 TD over trailing 3 games).',
+            '🔥 CORE STARTER': 'Elite positional workload (Opp ≥ 0.45) matched with high PPR production (PPR ≥ 13.0).',
+            '🚨 BUY LOW HOLD': 'High opportunity (Opp ≥ 0.40) & target floor but low output (PPR < 11.0).',
+            '📈 SURGING ROLE': 'Workload velocity growing rapidly (Surge ≥ 0.100).',
+            '⚠️ FLUKE RISK': 'Scoring fantasy points on weak volume (<8 touches/gm & Opp < 0.22).',
+            '✂️ DROP CANDIDATE': 'Weak volume (Opp < 0.20) and poor fantasy output (PPR < 8.0).',
             '👀 HOLD': 'Stable positional role without immediate breakout or drop signals.',
-            '🚨 BUY LOW / TARGET': 'High opportunity (Opp ≥ 0.45) & target floor with weak fantasy points (PPR < 10.0). Prime waiver target.',
-            '🔥 HIGH-VOLUME ALPHA': 'Unowned player producing elite volume (Opp ≥ 0.45) and strong PPR points (PPR ≥ 13.0). Priority pickup.',
+            '🚨 BUY LOW / TARGET': 'High opportunity (Opp ≥ 0.45) & target floor with weak fantasy points (PPR < 10.0).',
+            '🔥 HIGH-VOLUME ALPHA': 'Unowned player producing elite volume (Opp ≥ 0.45) and strong PPR points (PPR ≥ 13.0).',
             '📈 SURGING WORKLOAD': 'Workload velocity jumping rapidly over the past 3 weeks (Surge ≥ 0.100).',
-            '⚠️ SELL HIGH / FLUKE': 'Points scored without underlying volume (<8 touches/gm). High risk for waiver spending.',
+            '⚠️ SELL HIGH / FLUKE': 'Points scored without underlying volume (<8 touches/gm).',
             '👀 STASH': 'Low volume/points currently, but worth monitoring for deep bench storage.',
-            '🚨 BUY LOW / TRADE TARGET': 'Target rostered players with significant workload (Opp ≥ 0.40) who are underperforming on points (PPR < 11.0).'
+            '🚨 BUY LOW / TRADE TARGET': 'Target rostered players with significant workload (Opp ≥ 0.40) who are underperforming on points.'
         }};
 
         function switchTab(tabId, btn) {{
@@ -1029,10 +978,7 @@ html_content = f"""
             if (!match) return 'matchup-neutral';
             const rank = match.def_rank;
             
-            // Rank 1-8 = Allows most points = EASY
             if (rank <= 8) return 'matchup-easy'; 
-            
-            // Rank 25-32 = Allows fewest points = TOUGH
             if (rank >= 25) return 'matchup-tough'; 
             
             return 'matchup-neutral';
@@ -1171,7 +1117,9 @@ html_content = f"""
                             let badgeHtml = tags.map(tag => {{
                                 let desc = verdictTooltips[tag] || 'Actionable tactical consideration.';
                                 
-                                if (tag === '🚨 AIR YARD BUY-LOW' && row.air_yds_val !== undefined) {{
+                                if (tag === '⏱️ HIGH SNAP BUY-LOW' && row.snap_val !== undefined) {{
+                                    desc += ' [3-Wk Snap Share: ' + row.snap_val + '%]';
+                                }} else if (tag === '🚨 AIR YARD BUY-LOW' && row.air_yds_val !== undefined) {{
                                     desc += ' [3-Wk Air Yds Avg: ' + row.air_yds_val + ' yds/gm]';
                                 }} else if (tag === '🎯 RED ZONE BUY-LOW' && row.rz_opp_val !== undefined) {{
                                     desc += ' [3-Wk RZ Opp Index: ' + row.rz_opp_val + ']';
@@ -1205,6 +1153,7 @@ html_content = f"""
             }} else {{
                 let statBadgesHtml = '';
                 if (pSummary) {{
+                    const snapVal = pSummary.snap_val !== undefined ? pSummary.snap_val + '%' : 'N/A';
                     const airYds = pSummary.air_yds_val !== undefined ? pSummary.air_yds_val : 'N/A';
                     const rzOpp = pSummary.rz_opp_val !== undefined ? pSummary.rz_opp_val : 'N/A';
                     const surgeVal = pSummary.Surge !== undefined ? pSummary.Surge : (pSummary['Surge (Velocity)'] || '0.0');
@@ -1213,9 +1162,10 @@ html_content = f"""
                     statBadgesHtml = `
                         <div style="margin-top: 8px;">
                             <span class="modal-stat-pill">🏥 Status: ${{injStatus}}</span>
-                            <span class="modal-stat-pill">🎯 3-Wk Air Yds Avg: ${{airYds}} yds/gm</span>
-                            <span class="modal-stat-pill">🚩 3-Wk RZ Opp Index: ${{rzOpp}}</span>
-                            <span class="modal-stat-pill">📈 Surge Velocity: ${{surgeVal}}</span>
+                            <span class="modal-stat-pill">⏱️ 3-Wk Snap Share: ${{snapVal}}</span>
+                            <span class="modal-stat-pill">🎯 3-Wk Air Yds: ${{airYds}} yds/gm</span>
+                            <span class="modal-stat-pill">🚩 3-Wk RZ Index: ${{rzOpp}}</span>
+                            <span class="modal-stat-pill">📈 Surge: ${{surgeVal}}</span>
                         </div>
                     `;
                 }}
@@ -1226,7 +1176,7 @@ html_content = f"""
                     ${{statBadgesHtml}}
                 `;
                 
-                let html = '<table class="sortable"><thead><tr><th>Season</th><th>Week</th><th>Targets</th><th>Carries</th><th>Pass Att</th><th>Target Share</th><th>Air Yard Share</th><th>Unrealized AY</th><th>RZ Opp</th><th>TDs</th><th>Opp Score</th><th>PPR Pts</th></tr></thead><tbody>';
+                let html = '<table class="sortable"><thead><tr><th>Season</th><th>Week</th><th>Snap %</th><th>Targets</th><th>Carries</th><th>Pass Att</th><th>Tgt Share</th><th>Air Yard Share</th><th>Unrealized AY</th><th>RZ Opp</th><th>TDs</th><th>Opp Score</th><th>PPR Pts</th></tr></thead><tbody>';
                 playerGames.forEach(g => {{
                     const isActiveWindow = g.game_rn <= 3;
                     const rowClass = isActiveWindow ? 'class="active-window-row"' : '';
@@ -1235,6 +1185,7 @@ html_content = f"""
                     html += `<tr ${{rowClass}}>
                         <td>${{g.season}}</td>
                         <td>Week ${{g.week}}${{activeBadge}}</td>
+                        <td><strong>${{g.snap_pct}}%</strong></td>
                         <td>${{g.targets}}</td>
                         <td>${{g.carries}}</td>
                         <td>${{g.pass_attempts}}</td>
@@ -1250,7 +1201,6 @@ html_content = f"""
                 html += '</tbody></table>';
                 document.getElementById('modalTableContainer').innerHTML = html;
 
-                // Re-attach sort listeners dynamically to modal table header
                 attachSortListeners();
             }}
             
@@ -1300,12 +1250,12 @@ html_content = f"""
 
 output_file = "index.html"
 with open(output_file, "w", encoding="utf-8") as f:
-    f.write(html_content)
+  f.write(html_content)
 
 print(
-    "✅ Fandromeda Dashboard updated successfully with all latest features:"
+    "✅ Fandromeda Dashboard updated successfully with Snap Count tracking:"
     f" '{output_file}'"
 )
 
 if not os.getenv("GITHUB_ACTIONS"):
-    webbrowser.open("file://" + os.path.realpath(output_file))
+  webbrowser.open("file://" + os.path.realpath(output_file))
